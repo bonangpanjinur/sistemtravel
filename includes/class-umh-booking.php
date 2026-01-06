@@ -20,13 +20,16 @@ class UMH_Booking {
         // 1. Generate Booking Code
         $booking_code = 'UMH-' . strtoupper(wp_generate_password(6, false));
 
+        // Get total price
+        $total_price = isset($data['total_price']) ? $data['total_price'] : 0;
+
         // 2. Insert Booking
         $this->wpdb->insert(
             "{$this->wpdb->prefix}umh_bookings",
             [
                 'departure_id' => $departure_id,
                 'booking_code' => $booking_code,
-                'total_amount' => $data['total_amount'],
+                'total_price' => $total_price,
                 'status' => 'pending',
                 'created_at' => current_time('mysql')
             ]
@@ -97,8 +100,8 @@ class UMH_Booking {
 
     private function update_seat_quota($departure_id, $count) {
         $this->wpdb->query($this->wpdb->prepare(
-            "UPDATE {$this->wpdb->prefix}umh_departures SET available_seat = available_seat - %d WHERE id = %d",
-            $count, $departure_id
+            "UPDATE {$this->wpdb->prefix}umh_departures SET available_seats = available_seats - %d, seat_booked = seat_booked + %d WHERE id = %d",
+            $count, $count, $departure_id
         ));
     }
 }

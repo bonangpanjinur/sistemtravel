@@ -19,9 +19,10 @@ class UMH_Finance {
             "{$this->wpdb->prefix}umh_finance",
             [
                 'booking_id' => $booking_id,
-                'type' => 'income',
+                'transaction_type' => 'income',
                 'amount' => $amount,
                 'payment_method' => $method,
+                'status' => 'verified',
                 'transaction_date' => current_time('mysql')
             ]
         );
@@ -34,19 +35,32 @@ class UMH_Finance {
 
     private function check_payment_status($booking_id) {
         $total_paid = $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT SUM(amount) FROM {$this->wpdb->prefix}umh_finance WHERE booking_id = %d AND type = 'income'",
+            "SELECT SUM(amount) FROM {$this->wpdb->prefix}umh_finance WHERE booking_id = %d AND transaction_type = 'income' AND status = 'verified'",
             $booking_id
         ));
 
-        $total_amount = $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT total_amount FROM {$this->wpdb->prefix}umh_bookings WHERE id = %d",
+        $total_price = $this->wpdb->get_var($this->wpdb->prepare(
+            "SELECT total_price FROM {$this->wpdb->prefix}umh_bookings WHERE id = %d",
             $booking_id
         ));
 
-        if ($total_paid >= $total_amount) {
+        // Update total_paid in bookings table
+        $this->wpdb->update(
+            "{$this->wpdb->prefix}umh_bookings",
+            ['total_paid' => $total_paid],
+            ['id' => $booking_id]
+        );
+
+        if ($total_paid >= $total_price) {
             $this->wpdb->update(
                 "{$this->wpdb->prefix}umh_bookings",
-                ['status' => 'confirmed'],
+                ['payment_status' => 'paid', 'status' => 'confirmed'],
+                ['id' => $booking_id]
+            );
+        } elseif ($total_paid > 0) {
+            $this->wpdb->update(
+                "{$this->wpdb->prefix}umh_bookings",
+                ['payment_status' => 'partial'],
                 ['id' => $booking_id]
             );
         }
@@ -55,8 +69,8 @@ class UMH_Finance {
     /**
      * Savings Account Logic
      */
-    public function deposit_savings($jamaah_id, $amount) {
-        $account_id = $this->get_or_create_savings_account($jamaah_id);
+    public function deposit_savings($user_id, $amount) {
+        $account_id = $this->get_or_create_savings_account($user_id);
         
         $this->wpdb->insert(
             "{$this->wpdb->prefix}umh_savings_transactions",
@@ -64,33 +78,34 @@ class UMH_Finance {
                 'account_id' => $account_id,
                 'type' => 'deposit',
                 'amount' => $amount,
+                'status' => 'verified',
                 'transaction_date' => current_time('mysql')
             ]
         );
 
         $this->wpdb->query($this->wpdb->prepare(
-            "UPDATE {$this->wpdb->prefix}umh_savings_accounts SET balance = balance + %f WHERE id = %d",
+            "UPDATE {$this->wpdb->prefix}umh_savings_accounts SET current_balance = current_balance + %f WHERE id = %d",
             $amount, $account_id
         ));
     }
 
-    private function get_or_create_savings_account($jamaah_id) {
+    private function get_or_create_savings_account($user_id) {
         $existing = $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT id FROM {$this->wpdb->prefix}umh_savings_accounts WHERE jamaah_id = %d",
-            $jamaah_id
+            "SELECT id FROM {$this->wpdb->prefix}umh_savings_accounts WHERE user_id = %d",
+            $user_id
         ));
 
         if ($existing) {
             return $existing;
         }
 
-        $account_number = 'SAV-' . date('Ymd') . '-' . $jamaah_id;
         $this->wpdb->insert(
             "{$this->wpdb->prefix}umh_savings_accounts",
             [
-                'jamaah_id' => $jamaah_id,
-                'account_number' => $account_number,
-                'balance' => 0
+                'user_id' => $user_id,
+                'target_amount' => 30000000, // Default target
+                'current_balance' => 0,
+                'status' => 'active'
             ]
         );
         return $this->wpdb->insert_id;

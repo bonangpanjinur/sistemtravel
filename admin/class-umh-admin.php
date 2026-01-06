@@ -35,7 +35,7 @@ class UMH_Admin {
     public function display_dashboard() {
         $total_packages = $this->wpdb->get_var("SELECT COUNT(*) FROM {$this->wpdb->prefix}umh_packages");
         $total_bookings = $this->wpdb->get_var("SELECT COUNT(*) FROM {$this->wpdb->prefix}umh_bookings");
-        $total_revenue = $this->wpdb->get_var("SELECT SUM(amount) FROM {$this->wpdb->prefix}umh_finance WHERE type = 'income'");
+        $total_revenue = $this->wpdb->get_var("SELECT SUM(amount) FROM {$this->wpdb->prefix}umh_finance WHERE transaction_type = 'income' AND status = 'verified'");
         ?>
         <div class="wrap">
             <h1>Umroh Management Dashboard</h1>
@@ -215,6 +215,7 @@ class UMH_Admin {
                         <tr>
                             <th>Kode Booking</th>
                             <th>Paket</th>
+                            <th>Total Harga</th>
                             <th>Total Bayar</th>
                             <th>Status</th>
                             <th>Tanggal</th>
@@ -222,13 +223,14 @@ class UMH_Admin {
                     </thead>
                     <tbody>
                         <?php if (empty($bookings)): ?>
-                            <tr><td colspan="5">Belum ada booking.</td></tr>
+                            <tr><td colspan="6">Belum ada booking.</td></tr>
                         <?php else: ?>
                             <?php foreach ($bookings as $booking): ?>
                             <tr>
                                 <td><strong><?php echo $booking->booking_code; ?></strong></td>
                                 <td><?php echo $booking->package_name ?: 'N/A'; ?></td>
-                                <td>Rp <?php echo number_format($booking->total_amount, 0, ',', '.'); ?></td>
+                                <td>Rp <?php echo number_format($booking->total_price, 0, ',', '.'); ?></td>
+                                <td>Rp <?php echo number_format($booking->total_paid, 0, ',', '.'); ?></td>
                                 <td><span class="status-<?php echo $booking->status; ?>" style="padding: 3px 8px; border-radius: 3px; background: #eee;"><?php echo ucfirst($booking->status); ?></span></td>
                                 <td><?php echo date('d M Y H:i', strtotime($booking->created_at)); ?></td>
                             </tr>
@@ -264,7 +266,7 @@ class UMH_Admin {
                             <?php foreach ($transactions as $tx): ?>
                             <tr>
                                 <td><?php echo $tx->id; ?></td>
-                                <td><span style="color: <?php echo $tx->type == 'income' ? 'green' : 'red'; ?>;"><?php echo strtoupper($tx->type); ?></span></td>
+                                <td><span style="color: <?php echo $tx->transaction_type == 'income' ? 'green' : 'red'; ?>;"><?php echo strtoupper($tx->transaction_type); ?></span></td>
                                 <td>Rp <?php echo number_format($tx->amount, 0, ',', '.'); ?></td>
                                 <td><?php echo $tx->payment_method; ?></td>
                                 <td><?php echo date('d M Y H:i', strtotime($tx->transaction_date)); ?></td>
