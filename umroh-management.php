@@ -38,7 +38,7 @@ function deactivate_umh_management() {
 }
 
 register_activation_hook(__FILE__, 'activate_umh_management');
-register_deactivation_hook(__FILE__, 'deactivate_umh_management');
+register_deactivation_hook(__FILE__, 'deactivation_umh_management');
 
 /**
  * Initialize the plugin
@@ -52,6 +52,8 @@ class UMH_Management {
 
     private function load_dependencies() {
         require_once UMH_PLUGIN_DIR . 'includes/class-umh-api.php';
+        require_once UMH_PLUGIN_DIR . 'includes/class-umh-booking.php';
+        require_once UMH_PLUGIN_DIR . 'includes/class-umh-finance.php';
     }
 
     public function run() {
@@ -60,15 +62,11 @@ class UMH_Management {
 
     private function define_admin_hooks() {
         require_once UMH_PLUGIN_DIR . 'admin/class-umh-admin.php';
-        $admin = new UMH_Admin();
+        new UMH_Admin();
     }
 
     private function define_public_hooks() {
         // Public hooks
-    }
-
-    public function run() {
-        // Run the plugin
     }
 }
 
