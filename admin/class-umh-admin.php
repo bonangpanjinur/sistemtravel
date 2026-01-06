@@ -9,121 +9,111 @@ class UMH_Admin {
         global $wpdb;
         $this->wpdb = $wpdb;
         add_action('admin_menu', [$this, 'add_plugin_admin_menu']);
+        add_action('admin_init', [$this, 'handle_crud_actions']);
     }
 
     public function add_plugin_admin_menu() {
-        add_menu_page(
-            'Umroh Management',
-            'Umroh Mgmt',
-            'manage_options',
-            'umh-dashboard',
-            [$this, 'display_dashboard'],
-            'dashicons-airplane',
-            6
-        );
-
+        add_menu_page('Umroh Management', 'Umroh Mgmt', 'manage_options', 'umh-dashboard', [$this, 'display_dashboard'], 'dashicons-airplane', 6);
         add_submenu_page('umh-dashboard', 'Master Data', 'Master Data', 'manage_options', 'umh-master', [$this, 'display_master_data']);
         add_submenu_page('umh-dashboard', 'Packages', 'Packages', 'manage_options', 'umh-packages', [$this, 'display_packages']);
-        add_submenu_page('umh-dashboard', 'CRM & Leads', 'CRM & Leads', 'manage_options', 'umh-crm', [$this, 'display_crm']);
         add_submenu_page('umh-dashboard', 'Bookings', 'Bookings', 'manage_options', 'umh-bookings', [$this, 'display_bookings']);
-        add_submenu_page('umh-dashboard', 'Finance', 'Finance', 'manage_options', 'umh-finance', [$this, 'display_finance']);
-        add_submenu_page('umh-dashboard', 'Operasional', 'Operasional', 'manage_options', 'umh-ops', [$this, 'display_ops']);
-        add_submenu_page('umh-dashboard', 'Agents & HR', 'Agents & HR', 'manage_options', 'umh-hr', [$this, 'display_hr']);
-        add_submenu_page('umh-dashboard', 'Settings', 'Settings', 'manage_options', 'umh-settings', [$this, 'display_settings']);
+    }
+
+    public function handle_crud_actions() {
+        if (!isset($_POST['umh_action']) || !check_admin_referer('umh_nonce')) return;
+
+        $action = $_POST['umh_action'];
+        $table = $_POST['umh_table'];
+
+        if ($action == 'save_hotel') {
+            $this->wpdb->replace("{$this->wpdb->prefix}umh_master_hotels", [
+                'id' => $_POST['id'] ?: null,
+                'name' => sanitize_text_field($_POST['name']),
+                'star_rating' => intval($_POST['star_rating']),
+                'facilities' => sanitize_textarea_field($_POST['facilities'])
+            ]);
+            wp_redirect(admin_url('admin.php?page=umh-master&tab=hotels&message=success'));
+            exit;
+        }
+
+        if (isset($_GET['action']) && $_GET['action'] == 'delete') {
+            $id = intval($_GET['id']);
+            $table = sanitize_text_field($_GET['table']);
+            $this->wpdb->delete("{$this->wpdb->prefix}umh_{$table}", ['id' => $id]);
+            wp_redirect(admin_url('admin.php?page=umh-master&tab=' . str_replace('master_', '', $table) . '&message=deleted'));
+            exit;
+        }
     }
 
     public function display_dashboard() {
-        ?>
-        <div class="wrap">
-            <h1>Umroh Management Dashboard</h1>
-            <div class="welcome-panel">
-                <div class="welcome-panel-content">
-                    <h2>Selamat Datang di Sistem Manajemen Umroh Enterprise</h2>
-                    <p class="about-description">Kelola seluruh aspek bisnis travel umroh Anda dalam satu platform terintegrasi.</p>
-                </div>
-            </div>
-            <div class="umh-stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 20px;">
-                <div class="card" style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px;">
-                    <h3>Total Jamaah</h3>
-                    <p style="font-size: 24px; font-weight: bold;">0</p>
-                </div>
-                <div class="card" style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px;">
-                    <h3>Booking Aktif</h3>
-                    <p style="font-size: 24px; font-weight: bold;">0</p>
-                </div>
-                <div class="card" style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px;">
-                    <h3>Leads Baru</h3>
-                    <p style="font-size: 24px; font-weight: bold;">0</p>
-                </div>
-                <div class="card" style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px;">
-                    <h3>Revenue Bulan Ini</h3>
-                    <p style="font-size: 24px; font-weight: bold;">Rp 0</p>
-                </div>
-            </div>
-        </div>
-        <?php
+        echo '<div class="wrap"><h1>Umroh Management Dashboard</h1><p>Selamat datang di sistem manajemen umroh enterprise.</p></div>';
     }
 
     public function display_master_data() {
         $tab = isset($_GET['tab']) ? $_GET['tab'] : 'hotels';
+        $items = UMH_Helper::get_all('master_' . $tab);
         ?>
         <div class="wrap">
-            <h1>Master Data Management</h1>
+            <h1>Master Data: <?php echo ucfirst($tab); ?></h1>
             <h2 class="nav-tab-wrapper">
                 <a href="?page=umh-master&tab=hotels" class="nav-tab <?php echo $tab == 'hotels' ? 'nav-tab-active' : ''; ?>">Hotels</a>
                 <a href="?page=umh-master&tab=airlines" class="nav-tab <?php echo $tab == 'airlines' ? 'nav-tab-active' : ''; ?>">Airlines</a>
-                <a href="?page=umh-master&tab=locations" class="nav-tab <?php echo $tab == 'locations' ? 'nav-tab-active' : ''; ?>">Locations</a>
-                <a href="?page=umh-master&tab=mutawwifs" class="nav-tab <?php echo $tab == 'mutawwifs' ? 'nav-tab-active' : ''; ?>">Mutawwifs</a>
             </h2>
-            <div class="tab-content" style="margin-top: 20px;">
-                <?php $this->render_master_tab($tab); ?>
+
+            <div class="umh-content" style="margin-top: 20px; background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                <h3>Tambah/Edit <?php echo ucfirst($tab); ?></h3>
+                <form method="post">
+                    <?php wp_nonce_field('umh_nonce'); ?>
+                    <input type="hidden" name="umh_action" value="save_hotel">
+                    <input type="hidden" name="umh_table" value="master_hotels">
+                    <table class="form-table">
+                        <tr>
+                            <th>Nama</th>
+                            <td><input type="text" name="name" class="regular-text" required></td>
+                        </tr>
+                        <?php if ($tab == 'hotels'): ?>
+                        <tr>
+                            <th>Rating Bintang</th>
+                            <td><input type="number" name="star_rating" min="1" max="5" value="5"></td>
+                        </tr>
+                        <?php endif; ?>
+                    </table>
+                    <p class="submit"><input type="submit" class="button button-primary" value="Simpan Data"></p>
+                </form>
+
+                <hr>
+
+                <h3>Daftar Data</h3>
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nama</th>
+                            <?php if ($tab == 'hotels'): ?><th>Rating</th><?php endif; ?>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if ($items): foreach ($items as $item): ?>
+                        <tr>
+                            <td><?php echo $item->id; ?></td>
+                            <td><?php echo $item->name; ?></td>
+                            <?php if ($tab == 'hotels'): ?><td><?php echo $item->star_rating; ?> ★</td><?php endif; ?>
+                            <td>
+                                <a href="?page=umh-master&tab=<?php echo $tab; ?>&action=edit&id=<?php echo $item->id; ?>">Edit</a> | 
+                                <a href="<?php echo wp_nonce_url("?page=umh-master&tab=$tab&action=delete&table=master_$tab&id=$item->id", 'umh_nonce'); ?>" style="color:red;">Hapus</a>
+                            </td>
+                        </tr>
+                        <?php endforeach; else: ?>
+                        <tr><td colspan="4">Belum ada data.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
         <?php
     }
 
-    private function render_master_tab($tab) {
-        switch ($tab) {
-            case 'hotels':
-                echo '<h3>Daftar Hotel</h3><button class="button button-primary">Tambah Hotel</button>';
-                break;
-            case 'airlines':
-                echo '<h3>Daftar Maskapai</h3><button class="button button-primary">Tambah Maskapai</button>';
-                break;
-            case 'locations':
-                echo '<h3>Daftar Lokasi</h3><button class="button button-primary">Tambah Lokasi</button>';
-                break;
-            case 'mutawwifs':
-                echo '<h3>Daftar Mutawwif</h3><button class="button button-primary">Tambah Mutawwif</button>';
-                break;
-        }
-    }
-
-    public function display_packages() {
-        echo '<div class="wrap"><h1>Package Factory</h1><p>Rakit paket umroh dengan itinerary dinamis.</p></div>';
-    }
-
-    public function display_crm() {
-        echo '<div class="wrap"><h1>CRM & Lead Management</h1><p>Pantau prospek melalui Kanban Board.</p></div>';
-    }
-
-    public function display_bookings() {
-        echo '<div class="wrap"><h1>Booking Engine</h1><p>Kelola pendaftaran jamaah dan manifest.</p></div>';
-    }
-
-    public function display_finance() {
-        echo '<div class="wrap"><h1>Finance & Invoicing</h1><p>Kelola arus kas dan pembayaran.</p></div>';
-    }
-
-    public function display_ops() {
-        echo '<div class="wrap"><h1>Operasional Keberangkatan</h1><p>Rooming list, Visa, dan Logistik.</p></div>';
-    }
-
-    public function display_hr() {
-        echo '<div class="wrap"><h1>Agents & HR Management</h1><p>Kelola agen mitra dan SDM internal.</p></div>';
-    }
-
-    public function display_settings() {
-        echo '<div class="wrap"><h1>System Settings</h1></div>';
-    }
+    public function display_packages() { echo '<div class="wrap"><h1>Packages</h1></div>'; }
+    public function display_bookings() { echo '<div class="wrap"><h1>Bookings</h1></div>'; }
 }

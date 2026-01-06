@@ -51,6 +51,7 @@ class UMH_Management {
     }
 
     private function load_dependencies() {
+        require_once UMH_PLUGIN_DIR . 'includes/class-umh-helper.php';
         require_once UMH_PLUGIN_DIR . 'includes/class-umh-api.php';
         require_once UMH_PLUGIN_DIR . 'includes/class-umh-booking.php';
         require_once UMH_PLUGIN_DIR . 'includes/class-umh-finance.php';
