@@ -2,7 +2,7 @@ name: Deploy Plugin to WordPress via SFTP
 
 on:
   push:
-    branches: [ "main" ] # Pastikan branch utama di GitHub Anda bernama 'main'
+    branches: [ "main" ]
 
 jobs:
   build-and-deploy:
@@ -13,27 +13,9 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Setup Node.js untuk build React
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
+      # (LANGKAH NODE.JS & BUILD DIHAPUS KARENA BELUM DIPERLUKAN)
 
-      # 3. Install & Build React
-      #    CI=false agar warning tidak dianggap error
-      - name: Install & Build Assets
-        run: |
-          npm ci --legacy-peer-deps
-          npm run build
-        env:
-          CI: false
-
-      # 4. Hapus folder development yang tidak perlu di-upload
-      - name: Cleanup before deploy
-        run: rm -rf node_modules src
-
-      # 5. Upload ke Shared Hosting
+      # 2. Upload ke Shared Hosting
       - name: FTP Deploy
         uses: SamKirkland/FTP-Deploy-Action@4.3.3
         with:
@@ -49,19 +31,14 @@ jobs:
           # Upload semua file dari folder saat ini
           local-dir: ./
           
-          # ⚠️ PENTING: Ganti path di bawah ini sesuai struktur folder di Hosting Anda.
-          # Pastikan diakhiri dengan garis miring (/)
+          # ⚠️ PENTING: Pastikan path ini benar di hosting
           server-dir: /public_html/rizqunatourtravel.com/wp-content/plugins/sistemtravel/
           
-          # File yang tidak akan di-upload/ditimpa
+          # File yang tidak akan di-upload ke hosting
           exclude: |
             **/.git*
             **/.git*/**
-            **/node_modules/**
             .github/**
             .gitignore
             README.md
-            package.json
-            package-lock.json
-            webpack.config.js
-            tailwind.config.js
+            **/*.sql
