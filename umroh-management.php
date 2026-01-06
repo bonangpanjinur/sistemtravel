@@ -55,6 +55,7 @@ class UMH_Management {
         require_once UMH_PLUGIN_DIR . 'includes/class-umh-api.php';
         require_once UMH_PLUGIN_DIR . 'includes/class-umh-booking.php';
         require_once UMH_PLUGIN_DIR . 'includes/class-umh-finance.php';
+        require_once UMH_PLUGIN_DIR . 'includes/class-umh-package.php';
     }
 
     public function run() {
