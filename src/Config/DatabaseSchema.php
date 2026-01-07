@@ -335,6 +335,27 @@ class DatabaseSchema {
                 permissions TEXT,
                 last_used_at DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            // --- 10. INTEGRATIONS & SETTINGS ---
+
+            // [NEW] Tabel Antrian WhatsApp (WA Gateway)
+            "CREATE TABLE {$wpdb->prefix}umh_wa_outbox (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT UNSIGNED NULL, -- Penerima (jika user WP)
+                phone_number VARCHAR(20) NOT NULL,
+                message TEXT NOT NULL,
+                status VARCHAR(20) DEFAULT 'pending', -- pending, sent, failed
+                response_log TEXT, -- Respon dari API Provider (Fonnte/Wablas/dll)
+                attempt_count INT DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                sent_at DATETIME NULL
+            ) $charset_collate;",
+
+            // [NEW] Tabel Settings Sederhana (Key-Value Store untuk Config Plugin)
+            "CREATE TABLE {$wpdb->prefix}umh_settings (
+                setting_key VARCHAR(100) PRIMARY KEY,
+                setting_value LONGTEXT
             ) $charset_collate;"
         ];
     }
