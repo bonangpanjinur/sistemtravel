@@ -2,9 +2,13 @@
 namespace UmhMgmt\Controllers\Admin;
 
 use UmhMgmt\Utils\View;
+use UmhMgmt\Repositories\FinanceRepository;
 
 class FinanceController {
+    private $repo;
+
     public function __construct() {
+        $this->repo = new FinanceRepository();
         add_action('admin_menu', [$this, 'add_submenu_page']);
     }
 
@@ -20,6 +24,9 @@ class FinanceController {
     }
 
     public function render_page() {
-        View::render('admin/finance');
+        $data = [
+            'pending_payments' => $this->repo->getPendingPayments()
+        ];
+        View::render('admin/finance', $data);
     }
 }

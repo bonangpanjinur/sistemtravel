@@ -2,9 +2,13 @@
 namespace UmhMgmt\Controllers\Admin;
 
 use UmhMgmt\Utils\View;
+use UmhMgmt\Repositories\MasterDataRepository;
 
 class MasterDataController {
+    private $repo;
+
     public function __construct() {
+        $this->repo = new MasterDataRepository();
         add_action('admin_menu', [$this, 'add_submenu_page']);
     }
 
@@ -20,6 +24,15 @@ class MasterDataController {
     }
 
     public function render_page() {
-        View::render('admin/master-data');
+        $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'hotels';
+        $data = ['active_tab' => $active_tab];
+
+        if ($active_tab === 'hotels') {
+            $data['hotels'] = $this->repo->getHotels();
+        } elseif ($active_tab === 'airlines') {
+            $data['airlines'] = $this->repo->getAirlines();
+        }
+
+        View::render('admin/master-data', $data);
     }
 }

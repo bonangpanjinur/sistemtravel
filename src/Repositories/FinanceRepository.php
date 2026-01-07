@@ -19,4 +19,16 @@ class FinanceRepository {
             'credit' => $data['credit'] ?? 0
         ]);
     }
+
+    public function getPendingPayments() {
+        global $wpdb;
+        return $wpdb->get_results("
+            SELECT b.*, d.departure_date, p.name as package_name 
+            FROM {$wpdb->prefix}umh_bookings b
+            JOIN {$wpdb->prefix}umh_departures d ON b.departure_id = d.id
+            JOIN {$wpdb->prefix}umh_packages p ON d.package_id = p.id
+            WHERE b.status = 'pending'
+            ORDER BY b.created_at DESC
+        ");
+    }
 }

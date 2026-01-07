@@ -2,9 +2,13 @@
 namespace UmhMgmt\Controllers\Admin;
 
 use UmhMgmt\Utils\View;
+use UmhMgmt\Repositories\OperationalRepository;
 
 class OperationalController {
+    private $repo;
+
     public function __construct() {
+        $this->repo = new OperationalRepository();
         add_action('admin_menu', [$this, 'add_submenu_page']);
     }
 
@@ -20,6 +24,15 @@ class OperationalController {
     }
 
     public function render_page() {
-        View::render('admin/operational');
+        $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'rooming';
+        $data = ['active_tab' => $active_tab];
+
+        if ($active_tab === 'rooming') {
+            $data['departures'] = $this->repo->getUpcomingDepartures();
+        } elseif ($active_tab === 'logistics') {
+            $data['inventory'] = $this->repo->getInventoryItems();
+        }
+
+        View::render('admin/operational', $data);
     }
 }

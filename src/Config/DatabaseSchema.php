@@ -21,6 +21,7 @@ class DatabaseSchema {
                 package_id BIGINT,
                 departure_date DATE NOT NULL,
                 available_seats INT DEFAULT 0,
+                status VARCHAR(50) DEFAULT 'open',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
@@ -59,6 +60,39 @@ class DatabaseSchema {
                 description TEXT,
                 debit DECIMAL(15,2) DEFAULT 0,
                 credit DECIMAL(15,2) DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            "CREATE TABLE {$wpdb->prefix}umh_inventory_items (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                item_code VARCHAR(50) NOT NULL,
+                item_name VARCHAR(255) NOT NULL,
+                stock_qty INT DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            "CREATE TABLE {$wpdb->prefix}umh_hotels (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                location VARCHAR(255),
+                rating INT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            "CREATE TABLE {$wpdb->prefix}umh_airlines (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                code VARCHAR(10),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            "CREATE TABLE {$wpdb->prefix}umh_leads (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                phone VARCHAR(20),
+                email VARCHAR(100),
+                status VARCHAR(50) DEFAULT 'new',
+                source VARCHAR(100),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;"
         ];

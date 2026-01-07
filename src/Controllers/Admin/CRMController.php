@@ -2,9 +2,13 @@
 namespace UmhMgmt\Controllers\Admin;
 
 use UmhMgmt\Utils\View;
+use UmhMgmt\Repositories\CRMRepository;
 
 class CRMController {
+    private $repo;
+
     public function __construct() {
+        $this->repo = new CRMRepository();
         add_action('admin_menu', [$this, 'add_submenu_page']);
     }
 
@@ -20,6 +24,9 @@ class CRMController {
     }
 
     public function render_page() {
-        View::render('admin/crm');
+        $data = [
+            'leads' => $this->repo->getLeads()
+        ];
+        View::render('admin/crm', $data);
     }
 }
