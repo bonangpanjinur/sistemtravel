@@ -3,7 +3,7 @@
  * Plugin Name: Umroh Management System (Enterprise Edition)
  * Plugin URI: https://example.com/umroh-management
  * Description: Sistem manajemen travel umroh dengan arsitektur PSR-4 dan keamanan audit yang ditingkatkan.
- * Version: 2.0.0
+ * Version: 2.1.0
  * Author: bonangpanjinur
  * Text Domain: umroh-management
  */
@@ -14,9 +14,9 @@ if (!defined('ABSPATH')) {
 
 define('UMH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('UMH_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('UMH_VERSION', '2.0.0');
+define('UMH_VERSION', '2.1.0');
 
-// Simple PSR-4 Autoloader (since composer is not available in this environment)
+// Simple PSR-4 Autoloader
 spl_autoload_register(function ($class) {
     $prefix = 'UmhMgmt\\';
     $base_dir = UMH_PLUGIN_DIR . 'src/';
@@ -58,9 +58,18 @@ class UMH_Management {
 
     private function init_controllers() {
         if (is_admin()) {
-            // Controllers will be initialized here
             new \UmhMgmt\Controllers\Admin\DashboardController();
+            new \UmhMgmt\Controllers\Admin\MasterDataController();
             new \UmhMgmt\Controllers\Admin\PackageController();
+            new \UmhMgmt\Controllers\Admin\DepartureController();
+            new \UmhMgmt\Controllers\Admin\BookingController();
+            new \UmhMgmt\Controllers\Admin\FinanceController();
+            new \UmhMgmt\Controllers\Admin\CRMController();
+            new \UmhMgmt\Controllers\Admin\SavingsController();
+            new \UmhMgmt\Controllers\Admin\OperationalController();
+            new \UmhMgmt\Controllers\Admin\AgentsHRController();
+            new \UmhMgmt\Controllers\Admin\SpecialServicesController();
+            new \UmhMgmt\Controllers\Admin\CustomerCareController();
         } else {
             new \UmhMgmt\Controllers\Frontend\BookingFormController();
         }

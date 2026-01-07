@@ -10,13 +10,13 @@ class DashboardController {
 
     public function add_menu_page() {
         add_menu_page(
-            'Umroh Dashboard',
-            'Umroh Management',
+            'Umroh Mgmt',
+            'Umroh Mgmt',
             'manage_options',
             'umh-dashboard',
             [$this, 'render_dashboard'],
             'dashicons-airplane',
-            25
+            6
         );
     }
 
