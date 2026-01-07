@@ -19,9 +19,40 @@ class DatabaseSchema {
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 description TEXT,
-                price DECIMAL(15,2) NOT NULL,
+                hotel_mekkah_id BIGINT,
+                hotel_madinah_id BIGINT,
+                airline_id BIGINT,
+                departure_airport VARCHAR(100),
+                package_image_url VARCHAR(255),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 deleted_at DATETIME NULL DEFAULT NULL
+            ) $charset_collate;",
+
+            "CREATE TABLE {$wpdb->prefix}umh_package_pricing (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                package_id BIGINT NOT NULL,
+                room_type ENUM('quad', 'triple', 'double') NOT NULL,
+                price DECIMAL(15,2) NOT NULL,
+                currency VARCHAR(3) DEFAULT 'IDR',
+                FOREIGN KEY (package_id) REFERENCES {$wpdb->prefix}umh_packages(id) ON DELETE CASCADE
+            ) $charset_collate;",
+
+            "CREATE TABLE {$wpdb->prefix}umh_package_itineraries (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                package_id BIGINT NOT NULL,
+                day_number INT NOT NULL,
+                title VARCHAR(255),
+                description TEXT,
+                location VARCHAR(100),
+                FOREIGN KEY (package_id) REFERENCES {$wpdb->prefix}umh_packages(id) ON DELETE CASCADE
+            ) $charset_collate;",
+
+            "CREATE TABLE {$wpdb->prefix}umh_package_facilities (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                package_id BIGINT NOT NULL,
+                facility_name VARCHAR(255),
+                type ENUM('included', 'excluded') DEFAULT 'included',
+                FOREIGN KEY (package_id) REFERENCES {$wpdb->prefix}umh_packages(id) ON DELETE CASCADE
             ) $charset_collate;",
 
             "CREATE TABLE {$wpdb->prefix}umh_departures (

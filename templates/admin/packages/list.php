@@ -1,6 +1,6 @@
 <div class="wrap">
     <h1 class="wp-heading-inline">Package Management</h1>
-    <button class="page-title-action" onclick="openPackageModal()">Add New Package</button>
+    <a href="<?php echo admin_url('admin.php?page=umh-packages-add'); ?>" class="page-title-action">Add New (Product Factory)</a>
     <hr class="wp-header-end">
 
     <table class="wp-list-table widefat fixed striped">
