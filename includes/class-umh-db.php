@@ -76,6 +76,16 @@ class UMH_DB {
                 PRIMARY KEY (id)
             ) {$this->charset_collate};",
 
+            "CREATE TABLE {$this->wpdb->prefix}umh_branches (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                name varchar(255) NOT NULL,
+                address text,
+                phone varchar(20),
+                is_main_office boolean DEFAULT 0,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
             // 2. DATA JAMAAH
             "CREATE TABLE {$this->wpdb->prefix}umh_jamaah (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -148,6 +158,41 @@ class UMH_DB {
                 PRIMARY KEY (id)
             ) {$this->charset_collate};",
 
+            "CREATE TABLE {$this->wpdb->prefix}umh_package_categories (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                name varchar(100) NOT NULL,
+                slug varchar(100),
+                type enum('umrah', 'haji', 'tour') DEFAULT 'umrah',
+                description text,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_package_itineraries (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                package_id bigint(20) UNSIGNED NOT NULL,
+                day_number int NOT NULL,
+                title varchar(150) NOT NULL,
+                description text,
+                location varchar(100),
+                location_id bigint(20) UNSIGNED,
+                meals varchar(50),
+                image_url varchar(255),
+                PRIMARY KEY (id),
+                KEY package_id (package_id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_package_facilities (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                package_id bigint(20) UNSIGNED NOT NULL,
+                item_name varchar(200) NOT NULL,
+                type enum('include', 'exclude') NOT NULL,
+                icon_class varchar(50),
+                PRIMARY KEY (id),
+                KEY package_id (package_id)
+            ) {$this->charset_collate};",
+
+            // 4. INVENTORY & PRICING
             "CREATE TABLE {$this->wpdb->prefix}umh_departures (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 package_id bigint(20) UNSIGNED NOT NULL,
@@ -183,66 +228,60 @@ class UMH_DB {
                 KEY departure_date (departure_date)
             ) {$this->charset_collate};",
 
-            "CREATE TABLE {$this->wpdb->prefix}umh_package_categories (
+            "CREATE TABLE {$this->wpdb->prefix}umh_coupons (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                code varchar(50) NOT NULL UNIQUE,
+                type enum('nominal', 'percent') DEFAULT 'nominal',
+                value decimal(15,2) NOT NULL,
+                min_purchase decimal(15,2) DEFAULT 0,
+                max_discount decimal(15,2) DEFAULT 0,
+                quota int DEFAULT 0,
+                used_count int DEFAULT 0,
+                expiry_date date,
+                status enum('active', 'inactive') DEFAULT 'active',
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_booking_addons (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                name varchar(200) NOT NULL,
+                price decimal(15,2) NOT NULL,
+                description text,
+                status enum('active', 'inactive') DEFAULT 'active',
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            // 5. CRM & MARKETING
+            "CREATE TABLE {$this->wpdb->prefix}umh_marketing (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                title varchar(200) NOT NULL,
+                platform varchar(50),
+                budget decimal(15,2) DEFAULT 0,
+                start_date date,
+                end_date date,
+                status varchar(20) DEFAULT 'active',
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_leads (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 name varchar(100) NOT NULL,
-                slug varchar(100),
-                type enum('umrah', 'haji', 'tour') DEFAULT 'umrah',
-                description text,
+                phone varchar(20),
+                email varchar(100),
+                source varchar(50),
+                marketing_id bigint(20) UNSIGNED NULL,
+                interest_package_id bigint(20) UNSIGNED NULL,
+                status enum('new', 'contacted', 'hot', 'deal', 'lost') DEFAULT 'new',
+                converted_booking_id bigint(20) UNSIGNED NULL,
+                notes text,
                 created_at datetime DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id)
             ) {$this->charset_collate};",
 
-            "CREATE TABLE {$this->wpdb->prefix}umh_package_itineraries (
-                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                package_id bigint(20) UNSIGNED NOT NULL,
-                day_number int NOT NULL,
-                title varchar(150) NOT NULL,
-                description text,
-                location varchar(100),
-                location_id bigint(20) UNSIGNED,
-                meals varchar(50),
-                image_url varchar(255),
-                PRIMARY KEY (id),
-                KEY package_id (package_id)
-            ) {$this->charset_collate};",
-
-            "CREATE TABLE {$this->wpdb->prefix}umh_package_facilities (
-                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                package_id bigint(20) UNSIGNED NOT NULL,
-                item_name varchar(200) NOT NULL,
-                type enum('include', 'exclude') NOT NULL,
-                icon_class varchar(50),
-                PRIMARY KEY (id),
-                KEY package_id (package_id)
-            ) {$this->charset_collate};",
-
-            // 4. TABUNGAN
-            "CREATE TABLE {$this->wpdb->prefix}umh_savings_accounts (
-                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                user_id bigint(20) UNSIGNED NOT NULL,
-                package_id bigint(20) UNSIGNED DEFAULT NULL,   
-                tenure_years int(2) NOT NULL DEFAULT 1,        
-                target_amount decimal(15,2) NOT NULL,          
-                current_balance decimal(15,2) DEFAULT 0,       
-                status enum('active', 'completed', 'cancelled', 'on_hold') DEFAULT 'active',
-                created_at datetime DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (id)
-            ) {$this->charset_collate};",
-
-            "CREATE TABLE {$this->wpdb->prefix}umh_savings_transactions (
-                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                account_id bigint(20) UNSIGNED NOT NULL,
-                amount decimal(15,2) NOT NULL,
-                type enum('deposit', 'withdrawal', 'conversion') DEFAULT 'deposit',
-                payment_method varchar(50),
-                payment_proof varchar(255),
-                status enum('pending', 'verified', 'rejected') DEFAULT 'pending',
-                transaction_date datetime DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (id)
-            ) {$this->charset_collate};",
-
-            // 5. BOOKINGS & OPERATIONAL
+            // 6. BOOKINGS
             "CREATE TABLE {$this->wpdb->prefix}umh_bookings (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 booking_code varchar(50) NOT NULL UNIQUE,
@@ -287,6 +326,17 @@ class UMH_DB {
                 KEY jamaah_id (jamaah_id)
             ) {$this->charset_collate};",
 
+            // 7. DOC TRACKING
+            "CREATE TABLE {$this->wpdb->prefix}umh_doc_tracking (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                jamaah_id bigint(20) UNSIGNED NOT NULL,
+                doc_type varchar(50) NOT NULL,
+                status enum('jamaah', 'office', 'provider', 'done') DEFAULT 'jamaah',
+                updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            // 8. FINANCE
             "CREATE TABLE {$this->wpdb->prefix}umh_finance (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 booking_id bigint(20) UNSIGNED NULL,
@@ -301,7 +351,111 @@ class UMH_DB {
                 PRIMARY KEY (id)
             ) {$this->charset_collate};",
 
-            // 6. AGEN & HR
+            "CREATE TABLE {$this->wpdb->prefix}umh_master_bank_accounts (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                bank_name varchar(100),
+                account_number varchar(50),
+                account_holder varchar(255),
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_booking_requests (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                booking_id bigint(20) UNSIGNED NOT NULL,
+                request_type enum('refund', 'cancellation', 'reschedule') NOT NULL,
+                reason text,
+                amount_requested decimal(15,2) DEFAULT 0,
+                status enum('pending', 'approved', 'rejected') DEFAULT 'pending',
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            // 9. SAVINGS
+            "CREATE TABLE {$this->wpdb->prefix}umh_savings_accounts (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                user_id bigint(20) UNSIGNED NOT NULL,
+                package_id bigint(20) UNSIGNED DEFAULT NULL,   
+                tenure_years int(2) NOT NULL DEFAULT 1,        
+                target_amount decimal(15,2) NOT NULL,          
+                current_balance decimal(15,2) DEFAULT 0,       
+                status enum('active', 'completed', 'cancelled', 'on_hold') DEFAULT 'active',
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_savings_transactions (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                account_id bigint(20) UNSIGNED NOT NULL,
+                amount decimal(15,2) NOT NULL,
+                payment_proof varchar(255),
+                status enum('pending', 'verified', 'rejected') DEFAULT 'pending',
+                transaction_date datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            // 10. OPERATIONAL
+            "CREATE TABLE {$this->wpdb->prefix}umh_rooming_list (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                departure_id bigint(20) UNSIGNED NOT NULL,
+                room_number varchar(20),
+                jamaah_id bigint(20) UNSIGNED NOT NULL,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_visa_batches (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                batch_name varchar(255),
+                provider_name varchar(255),
+                status enum('draft', 'submitted', 'approved', 'rejected') DEFAULT 'draft',
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_manasik_schedules (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                departure_id bigint(20) UNSIGNED NOT NULL,
+                event_date datetime NOT NULL,
+                location text,
+                notes text,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_manasik_attendance (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                schedule_id bigint(20) UNSIGNED NOT NULL,
+                jamaah_id bigint(20) UNSIGNED NOT NULL,
+                status enum('present', 'absent') DEFAULT 'absent',
+                attended_at datetime,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            // 11. LOGISTIK
+            "CREATE TABLE {$this->wpdb->prefix}umh_inventory_items (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                item_code varchar(50) UNIQUE, 
+                item_name varchar(100) NOT NULL,
+                category enum('perlengkapan', 'dokumen', 'souvenir') DEFAULT 'perlengkapan',
+                stock_qty int DEFAULT 0,
+                min_stock_alert int DEFAULT 10,
+                unit_cost decimal(15,2) DEFAULT 0,
+                updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_logistics_distribution (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                booking_passenger_id bigint(20) UNSIGNED NOT NULL,
+                item_id bigint(20) UNSIGNED NOT NULL,
+                qty int DEFAULT 1,
+                status enum('pending', 'ready', 'taken', 'shipped') DEFAULT 'pending',
+                taken_by varchar(100),
+                taken_date datetime,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            // 12. AGEN & HR
             "CREATE TABLE {$this->wpdb->prefix}umh_agents (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 user_id bigint(20) UNSIGNED NOT NULL DEFAULT 0,
@@ -337,107 +491,126 @@ class UMH_DB {
                 PRIMARY KEY (id)
             ) {$this->charset_collate};",
 
-            // 7. LOGISTIK
-            "CREATE TABLE {$this->wpdb->prefix}umh_inventory_items (
+            "CREATE TABLE {$this->wpdb->prefix}umh_hr_attendance (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                item_code varchar(50) UNIQUE, 
-                item_name varchar(100) NOT NULL,
-                category enum('perlengkapan', 'dokumen', 'souvenir') DEFAULT 'perlengkapan',
-                stock_qty int DEFAULT 0,
-                min_stock_alert int DEFAULT 10,
-                unit_cost decimal(15,2) DEFAULT 0,
-                updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                employee_id bigint(20) UNSIGNED NOT NULL,
+                clock_in datetime,
+                clock_out datetime,
+                status enum('present', 'late', 'absent', 'on_leave') DEFAULT 'present',
                 PRIMARY KEY (id)
             ) {$this->charset_collate};",
 
-            "CREATE TABLE {$this->wpdb->prefix}umh_logistics_distribution (
+            // 13. SPECIAL SERVICES
+            "CREATE TABLE {$this->wpdb->prefix}umh_private_requests (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                booking_passenger_id bigint(20) UNSIGNED NOT NULL,
-                item_id bigint(20) UNSIGNED NOT NULL,
-                qty int DEFAULT 1,
-                status enum('pending', 'ready', 'taken', 'shipped') DEFAULT 'pending',
-                taken_by varchar(100),
-                taken_date datetime,
-                created_at datetime DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (id)
-            ) {$this->charset_collate};",
-
-            // 8. CRM & MARKETING
-            "CREATE TABLE {$this->wpdb->prefix}umh_marketing (
-                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                title varchar(200) NOT NULL,
-                platform varchar(50),
-                budget decimal(15,2) DEFAULT 0,
-                start_date date,
-                end_date date,
-                status varchar(20) DEFAULT 'active',
-                created_at datetime DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (id)
-            ) {$this->charset_collate};",
-
-            "CREATE TABLE {$this->wpdb->prefix}umh_leads (
-                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                name varchar(100) NOT NULL,
+                user_id bigint(20) UNSIGNED,
+                name varchar(150) NOT NULL,
                 phone varchar(20),
                 email varchar(100),
-                source varchar(50),
-                marketing_id bigint(20) UNSIGNED NULL,
-                interest_package_id bigint(20) UNSIGNED NULL,
-                status enum('new', 'contacted', 'hot', 'deal', 'lost') DEFAULT 'new',
-                converted_booking_id bigint(20) UNSIGNED NULL,
+                departure_date_plan date,
+                duration_days int,
+                pax_count int,
+                hotel_star_pref varchar(10),
                 notes text,
+                status enum('new', 'quoted', 'deal', 'cancelled') DEFAULT 'new',
                 created_at datetime DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id)
             ) {$this->charset_collate};",
 
-            // 9. DOC TRACKING
-            "CREATE TABLE {$this->wpdb->prefix}umh_doc_tracking (
+            "CREATE TABLE {$this->wpdb->prefix}umh_private_quotations (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                request_id bigint(20) UNSIGNED NOT NULL,
+                total_cost decimal(15,2),
+                margin_percent decimal(5,2),
+                final_price decimal(15,2),
+                pdf_url varchar(255),
+                status enum('draft', 'sent', 'accepted', 'rejected') DEFAULT 'draft',
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_badal_umrah (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                booking_id bigint(20) UNSIGNED,
+                badal_name varchar(150) NOT NULL,
+                badal_gender enum('L', 'P'),
+                status_person enum('wafat', 'sakit_parah') DEFAULT 'wafat',
+                mutawwif_id bigint(20) UNSIGNED,
+                execution_date date,
+                proof_video_url varchar(255),
+                certificate_url varchar(255),
+                status enum('pending', 'assigned', 'completed') DEFAULT 'pending',
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            // 14. CUSTOMER CARE
+            "CREATE TABLE {$this->wpdb->prefix}umh_support_tickets (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                user_id bigint(20) UNSIGNED,
+                booking_id bigint(20) UNSIGNED,
+                subject varchar(200) NOT NULL,
+                priority enum('low', 'medium', 'high') DEFAULT 'medium',
+                status enum('open', 'in_progress', 'resolved', 'closed') DEFAULT 'open',
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_support_messages (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                ticket_id bigint(20) UNSIGNED NOT NULL,
+                user_id bigint(20) UNSIGNED NOT NULL,
+                message text NOT NULL,
+                is_admin boolean DEFAULT 0,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (id)
+            ) {$this->charset_collate};",
+
+            "CREATE TABLE {$this->wpdb->prefix}umh_reviews (
+                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+                booking_id bigint(20) UNSIGNED NOT NULL,
                 jamaah_id bigint(20) UNSIGNED NOT NULL,
-                doc_type varchar(50) NOT NULL,
-                status enum('jamaah', 'office', 'provider', 'done') DEFAULT 'jamaah',
-                updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                rating int(1) NOT NULL,
+                comment text,
+                review_type enum('hotel', 'mutawwif', 'service', 'overall') DEFAULT 'overall',
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id)
             ) {$this->charset_collate};",
 
-            // 10. ROOMING LIST
-            "CREATE TABLE {$this->wpdb->prefix}umh_rooming_list (
+            // 15. SYSTEM & AUTOMATION
+            "CREATE TABLE {$this->wpdb->prefix}umh_notifications (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                departure_id bigint(20) UNSIGNED NOT NULL,
-                room_number varchar(20),
-                jamaah_id bigint(20) UNSIGNED NOT NULL,
+                user_id bigint(20) UNSIGNED,
+                title varchar(200),
+                message text,
+                type enum('info', 'warning', 'billing', 'schedule') DEFAULT 'info',
+                is_read boolean DEFAULT 0,
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id)
             ) {$this->charset_collate};",
 
-            // 11. VISA BATCHES
-            "CREATE TABLE {$this->wpdb->prefix}umh_visa_batches (
+            "CREATE TABLE {$this->wpdb->prefix}umh_notification_templates (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                batch_name varchar(255),
-                provider_name varchar(255),
-                status enum('draft', 'submitted', 'approved', 'rejected') DEFAULT 'draft',
+                name varchar(100) UNIQUE,
+                subject varchar(200),
+                content text,
+                type enum('email', 'whatsapp', 'push') DEFAULT 'whatsapp',
                 PRIMARY KEY (id)
             ) {$this->charset_collate};",
 
-            // 12. BRANCHES
-            "CREATE TABLE {$this->wpdb->prefix}umh_branches (
+            "CREATE TABLE {$this->wpdb->prefix}umh_activity_logs (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                name varchar(255) NOT NULL,
-                address text,
-                phone varchar(20),
-                is_main_office boolean DEFAULT 0,
+                user_id bigint(20) UNSIGNED,
+                action varchar(100),
+                table_name varchar(100),
+                record_id bigint(20) UNSIGNED,
+                old_value longtext,
+                new_value longtext,
+                ip_address varchar(45),
+                created_at datetime DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (id)
             ) {$this->charset_collate};",
 
-            // 13. BANK ACCOUNTS
-            "CREATE TABLE {$this->wpdb->prefix}umh_master_bank_accounts (
-                id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-                bank_name varchar(100),
-                account_number varchar(50),
-                account_holder varchar(255),
-                PRIMARY KEY (id)
-            ) {$this->charset_collate};",
-
-            // 14. TASKS
             "CREATE TABLE {$this->wpdb->prefix}umh_tasks (
                 id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
                 title varchar(200) NOT NULL,

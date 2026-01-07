@@ -20,6 +20,12 @@ class UMH_Admin {
         add_submenu_page('umh-dashboard', 'Packages', 'Packages', 'manage_options', 'umh-packages', [$this, 'display_packages']);
         add_submenu_page('umh-dashboard', 'Bookings', 'Bookings', 'manage_options', 'umh-bookings', [$this, 'display_bookings']);
         add_submenu_page('umh-dashboard', 'Finance', 'Finance', 'manage_options', 'umh-finance', [$this, 'display_finance']);
+        add_submenu_page('umh-dashboard', 'CRM & Leads', 'CRM & Leads', 'manage_options', 'umh-crm', [$this, 'display_crm']);
+        add_submenu_page('umh-dashboard', 'Savings', 'Savings', 'manage_options', 'umh-savings', [$this, 'display_savings']);
+        add_submenu_page('umh-dashboard', 'Operational', 'Operational', 'manage_options', 'umh-operational', [$this, 'display_operational']);
+        add_submenu_page('umh-dashboard', 'Agents & HR', 'Agents & HR', 'manage_options', 'umh-agents-hr', [$this, 'display_agents_hr']);
+        add_submenu_page('umh-dashboard', 'Special Services', 'Special Services', 'manage_options', 'umh-special-services', [$this, 'display_special_services']);
+        add_submenu_page('umh-dashboard', 'Customer Care', 'Customer Care', 'manage_options', 'umh-customer-care', [$this, 'display_customer_care']);
     }
 
     public function handle_crud_actions() {
@@ -64,7 +70,23 @@ class UMH_Admin {
         $tab = sanitize_text_field($_POST['tab']);
         $name = sanitize_text_field($_POST['name']);
         
-        $this->wpdb->insert("{$this->wpdb->prefix}umh_master_{$tab}", ['name' => $name]);
+        $table_name = (in_array($tab, ['branches', 'coupons', 'booking_addons'])) ? "{$this->wpdb->prefix}umh_{$tab}" : "{$this->wpdb->prefix}umh_master_{$tab}";
+        
+        $data = ['name' => $name];
+        if ($tab == 'coupons') {
+            $data = [
+                'code' => sanitize_text_field($_POST['code']),
+                'value' => floatval($_POST['value']),
+                'type' => sanitize_text_field($_POST['type'])
+            ];
+        } elseif ($tab == 'booking_addons') {
+            $data = [
+                'name' => $name,
+                'price' => floatval($_POST['price'])
+            ];
+        }
+        
+        $this->wpdb->insert($table_name, $data);
         
         wp_redirect(admin_url("admin.php?page=umh-master&tab={$tab}"));
         exit;
@@ -86,15 +108,19 @@ class UMH_Admin {
 
     public function display_master_data() {
         $tab = isset($_GET['tab']) ? $_GET['tab'] : 'hotels';
-        $items = UMH_Helper::get_all('master_' . $tab);
+        $table_name = (in_array($tab, ['branches', 'coupons', 'booking_addons'])) ? $tab : 'master_' . $tab;
+        $items = UMH_Helper::get_all($table_name);
         ?>
         <div class="wrap">
-            <h1>Master Data: <?php echo ucfirst($tab); ?></h1>
+            <h1>Master Data: <?php echo ucfirst(str_replace('_', ' ', $tab)); ?></h1>
             <h2 class="nav-tab-wrapper">
                 <a href="?page=umh-master&tab=hotels" class="nav-tab <?php echo $tab == 'hotels' ? 'nav-tab-active' : ''; ?>">Hotels</a>
                 <a href="?page=umh-master&tab=airlines" class="nav-tab <?php echo $tab == 'airlines' ? 'nav-tab-active' : ''; ?>">Airlines</a>
                 <a href="?page=umh-master&tab=locations" class="nav-tab <?php echo $tab == 'locations' ? 'nav-tab-active' : ''; ?>">Locations</a>
                 <a href="?page=umh-master&tab=mutawwifs" class="nav-tab <?php echo $tab == 'mutawwifs' ? 'nav-tab-active' : ''; ?>">Mutawwifs</a>
+                <a href="?page=umh-master&tab=branches" class="nav-tab <?php echo $tab == 'branches' ? 'nav-tab-active' : ''; ?>">Branches</a>
+                <a href="?page=umh-master&tab=coupons" class="nav-tab <?php echo $tab == 'coupons' ? 'nav-tab-active' : ''; ?>">Coupons</a>
+                <a href="?page=umh-master&tab=booking_addons" class="nav-tab <?php echo $tab == 'booking_addons' ? 'nav-tab-active' : ''; ?>">Add-ons</a>
             </h2>
 
             <div style="display: flex; gap: 20px; margin-top: 20px;">
@@ -105,10 +131,39 @@ class UMH_Admin {
                         <input type="hidden" name="tab" value="<?php echo $tab; ?>">
                         <?php wp_nonce_field('umh_master_nonce'); ?>
                         <table class="form-table">
-                            <tr>
-                                <th>Nama</th>
-                                <td><input type="text" name="name" class="regular-text" required></td>
-                            </tr>
+                            <?php if ($tab == 'coupons'): ?>
+                                <tr>
+                                    <th>Kode Kupon</th>
+                                    <td><input type="text" name="code" class="regular-text" required></td>
+                                </tr>
+                                <tr>
+                                    <th>Tipe</th>
+                                    <td>
+                                        <select name="type">
+                                            <option value="nominal">Nominal</option>
+                                            <option value="percent">Persen</option>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Nilai</th>
+                                    <td><input type="number" name="value" class="regular-text" required></td>
+                                </tr>
+                            <?php elseif ($tab == 'booking_addons'): ?>
+                                <tr>
+                                    <th>Nama Layanan</th>
+                                    <td><input type="text" name="name" class="regular-text" required></td>
+                                </tr>
+                                <tr>
+                                    <th>Harga</th>
+                                    <td><input type="number" name="price" class="regular-text" required></td>
+                                </tr>
+                            <?php else: ?>
+                                <tr>
+                                    <th>Nama</th>
+                                    <td><input type="text" name="name" class="regular-text" required></td>
+                                </tr>
+                            <?php endif; ?>
                         </table>
                         <p class="submit"><input type="submit" class="button button-primary" value="Tambah"></p>
                     </form>
@@ -116,16 +171,38 @@ class UMH_Admin {
 
                 <div style="flex: 2; background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
                     <table class="wp-list-table widefat fixed striped">
-                        <thead><tr><th>ID</th><th>Nama</th><th>Aksi</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <?php if ($tab == 'coupons'): ?>
+                                    <th>Kode</th>
+                                    <th>Nilai</th>
+                                <?php elseif ($tab == 'booking_addons'): ?>
+                                    <th>Nama</th>
+                                    <th>Harga</th>
+                                <?php else: ?>
+                                    <th>Nama</th>
+                                <?php endif; ?>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             <?php if (empty($items)): ?>
-                                <tr><td colspan="3">Belum ada data.</td></tr>
+                                <tr><td colspan="<?php echo ($tab == 'coupons' || $tab == 'booking_addons') ? 4 : 3; ?>">Belum ada data.</td></tr>
                             <?php else: ?>
                                 <?php foreach ($items as $item): ?>
                                 <tr>
                                     <td><?php echo $item->id; ?></td>
-                                    <td><?php echo $item->name; ?></td>
-                                    <td><a href="<?php echo wp_nonce_url("?page=umh-master&tab=$tab&action=delete&table=master_$tab&id=$item->id", 'umh_nonce'); ?>" style="color:red;" onclick="return confirm('Yakin ingin menghapus?')">Hapus</a></td>
+                                    <?php if ($tab == 'coupons'): ?>
+                                        <td><?php echo $item->code; ?></td>
+                                        <td><?php echo $item->type == 'percent' ? $item->value . '%' : 'Rp ' . number_format($item->value, 0, ',', '.'); ?></td>
+                                    <?php elseif ($tab == 'booking_addons'): ?>
+                                        <td><?php echo $item->name; ?></td>
+                                        <td>Rp <?php echo number_format($item->price, 0, ',', '.'); ?></td>
+                                    <?php else: ?>
+                                        <td><?php echo $item->name; ?></td>
+                                    <?php endif; ?>
+                                    <td><a href="<?php echo wp_nonce_url("?page=umh-master&tab=$tab&action=delete&table=$table_name&id=$item->id", 'umh_nonce'); ?>" style="color:red;" onclick="return confirm('Yakin ingin menghapus?')">Hapus</a></td>
                                 </tr>
                                 <?php endforeach; ?>
                             <?php endif; ?>
@@ -139,28 +216,123 @@ class UMH_Admin {
 
     public function display_packages() {
         $packages = UMH_Helper::get_all('packages');
+        $hotels = UMH_Helper::get_all('master_hotels');
+        $airlines = UMH_Helper::get_all('master_airlines');
         ?>
         <div class="wrap">
             <h1>Package Factory</h1>
             <div class="umh-content" style="margin-top: 20px; background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
                 <h3>Buat Paket Baru</h3>
                 <form id="umh-package-form">
-                    <table class="form-table">
-                        <tr><th>Nama Paket</th><td><input type="text" name="name" class="regular-text" required></td></tr>
-                        <tr><th>Durasi (Hari)</th><td><input type="number" name="duration_days" value="9"></td></tr>
-                    </table>
-                    <h4>Itinerary</h4>
-                    <div id="itinerary-container">
-                        <div class="itinerary-day" style="border: 1px solid #eee; padding: 10px; margin-bottom: 10px;">
-                            <strong>Hari 1</strong>: <input type="text" name="itineraries[1][title]" placeholder="Judul Kegiatan">
-                            <textarea name="itineraries[1][description]" style="width:100%;" placeholder="Deskripsi..."></textarea>
+                    <div style="display: flex; gap: 30px;">
+                        <div style="flex: 1;">
+                            <h4>Informasi Dasar</h4>
+                            <table class="form-table">
+                                <tr><th>Nama Paket</th><td><input type="text" name="name" class="regular-text" required></td></tr>
+                                <tr><th>Durasi (Hari)</th><td><input type="number" name="duration_days" value="9"></td></tr>
+                                <tr>
+                                    <th>Maskapai</th>
+                                    <td>
+                                        <select name="airline_id">
+                                            <option value="">Pilih Maskapai</option>
+                                            <?php foreach ($airlines as $airline): ?>
+                                                <option value="<?php echo $airline->id; ?>"><?php echo $airline->name; ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Hotel Makkah</th>
+                                    <td>
+                                        <select name="hotel_makkah_id">
+                                            <option value="">Pilih Hotel</option>
+                                            <?php foreach ($hotels as $hotel): ?>
+                                                <option value="<?php echo $hotel->id; ?>"><?php echo $hotel->name; ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Hotel Madinah</th>
+                                    <td>
+                                        <select name="hotel_madinah_id">
+                                            <option value="">Pilih Hotel</option>
+                                            <?php foreach ($hotels as $hotel): ?>
+                                                <option value="<?php echo $hotel->id; ?>"><?php echo $hotel->name; ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div style="flex: 1;">
+                            <h4>Harga Dasar (IDR)</h4>
+                            <table class="form-table">
+                                <tr><th>Quad</th><td><input type="number" name="base_price_quad" value="0"></td></tr>
+                                <tr><th>Triple</th><td><input type="number" name="base_price_triple" value="0"></td></tr>
+                                <tr><th>Double</th><td><input type="number" name="base_price_double" value="0"></td></tr>
+                            </table>
                         </div>
                     </div>
-                    <button type="button" class="button" onclick="addDay()">Tambah Hari</button>
+
+                    <div style="display: flex; gap: 30px; margin-top: 20px;">
+                        <div style="flex: 1;">
+                            <h4>Itinerary</h4>
+                            <div id="itinerary-container">
+                                <div class="itinerary-day" style="border: 1px solid #eee; padding: 10px; margin-bottom: 10px;">
+                                    <strong>Hari 1</strong>: <input type="text" name="itineraries[1][title]" placeholder="Judul Kegiatan">
+                                    <textarea name="itineraries[1][description]" style="width:100%;" placeholder="Deskripsi..."></textarea>
+                                </div>
+                            </div>
+                            <button type="button" class="button" onclick="addDay()">Tambah Hari</button>
+                        </div>
+                        <div style="flex: 1;">
+                            <h4>Fasilitas</h4>
+                            <div style="display: flex; gap: 20px;">
+                                <div style="flex: 1;">
+                                    <h5>Termasuk (Include)</h5>
+                                    <div id="include-container">
+                                        <input type="text" name="facilities[include][]" placeholder="Contoh: Tiket Pesawat" style="width:100%; margin-bottom:5px;">
+                                    </div>
+                                    <button type="button" class="button" onclick="addFacility('include')">Tambah Include</button>
+                                </div>
+                                <div style="flex: 1;">
+                                    <h5>Tidak Termasuk (Exclude)</h5>
+                                    <div id="exclude-container">
+                                        <input type="text" name="facilities[exclude][]" placeholder="Contoh: Paspor" style="width:100%; margin-bottom:5px;">
+                                    </div>
+                                    <button type="button" class="button" onclick="addFacility('exclude')">Tambah Exclude</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <p class="submit"><input type="submit" class="button button-primary" value="Simpan Paket"></p>
                 </form>
             </div>
         </div>
+        <script>
+            let dayCount = 1;
+            function addDay() {
+                dayCount++;
+                const container = document.getElementById('itinerary-container');
+                const div = document.createElement('div');
+                div.className = 'itinerary-day';
+                div.style = 'border: 1px solid #eee; padding: 10px; margin-bottom: 10px;';
+                div.innerHTML = `<strong>Hari ${dayCount}</strong>: <input type="text" name="itineraries[${dayCount}][title]" placeholder="Judul Kegiatan">
+                                 <textarea name="itineraries[${dayCount}][description]" style="width:100%;" placeholder="Deskripsi..."></textarea>`;
+                container.appendChild(div);
+            }
+
+            function addFacility(type) {
+                const container = document.getElementById(type + '-container');
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.name = `facilities[${type}][]`;
+                input.style = 'width:100%; margin-bottom:5px;';
+                container.appendChild(input);
+            }
+        </script>
         <script>
             let dayCount = 1;
             function addDay() {
@@ -244,32 +416,34 @@ class UMH_Admin {
     }
 
     public function display_finance() {
-        $transactions = UMH_Helper::get_all('finance');
+        $finance = UMH_Helper::get_all('finance');
         ?>
         <div class="wrap">
-            <h1>Finance & Transactions</h1>
+            <h1>Finance</h1>
             <div class="umh-content" style="margin-top: 20px; background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
                         <tr>
                             <th>ID</th>
                             <th>Tipe</th>
+                            <th>Kategori</th>
                             <th>Jumlah</th>
-                            <th>Metode</th>
+                            <th>Status</th>
                             <th>Tanggal</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (empty($transactions)): ?>
-                            <tr><td colspan="5">Belum ada transaksi.</td></tr>
+                        <?php if (empty($finance)): ?>
+                            <tr><td colspan="6">Belum ada transaksi.</td></tr>
                         <?php else: ?>
-                            <?php foreach ($transactions as $tx): ?>
+                            <?php foreach ($finance as $item): ?>
                             <tr>
-                                <td><?php echo $tx->id; ?></td>
-                                <td><span style="color: <?php echo $tx->transaction_type == 'income' ? 'green' : 'red'; ?>;"><?php echo strtoupper($tx->transaction_type); ?></span></td>
-                                <td>Rp <?php echo number_format($tx->amount, 0, ',', '.'); ?></td>
-                                <td><?php echo $tx->payment_method; ?></td>
-                                <td><?php echo date('d M Y H:i', strtotime($tx->transaction_date)); ?></td>
+                                <td><?php echo $item->id; ?></td>
+                                <td><?php echo ucfirst($item->transaction_type); ?></td>
+                                <td><?php echo str_replace('_', ' ', ucfirst($item->category)); ?></td>
+                                <td>Rp <?php echo number_format($item->amount, 0, ',', '.'); ?></td>
+                                <td><span class="status-<?php echo $item->status; ?>"><?php echo ucfirst($item->status); ?></span></td>
+                                <td><?php echo $item->transaction_date; ?></td>
                             </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -279,4 +453,57 @@ class UMH_Admin {
         </div>
         <?php
     }
-}
+
+    public function display_crm() {
+        ?>
+        <div class="wrap">
+            <h1>CRM & Lead Management</h1>
+            <p>Fitur ini sedang dalam pengembangan.</p>
+        </div>
+        <?php
+    }
+
+    public function display_savings() {
+        ?>
+        <div class="wrap">
+            <h1>Savings Management</h1>
+            <p>Fitur ini sedang dalam pengembangan.</p>
+        </div>
+        <?php
+    }
+
+    public function display_operational() {
+        ?>
+        <div class="wrap">
+            <h1>Operational Management</h1>
+            <p>Fitur ini sedang dalam pengembangan.</p>
+        </div>
+        <?php
+    }
+
+    public function display_agents_hr() {
+        ?>
+        <div class="wrap">
+            <h1>Agents & HR Management</h1>
+            <p>Fitur ini sedang dalam pengembangan.</p>
+        </div>
+        <?php
+    }
+
+    public function display_special_services() {
+        ?>
+        <div class="wrap">
+            <h1>Special Services</h1>
+            <p>Fitur ini sedang dalam pengembangan.</p>
+        </div>
+        <?php
+    }
+
+    public function display_customer_care() {
+        ?>
+        <div class="wrap">
+            <h1>Customer Care</h1>
+            <p>Fitur ini sedang dalam pengembangan.</p>
+        </div>
+        <?php
+    }
