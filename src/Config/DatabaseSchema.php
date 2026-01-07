@@ -1,4 +1,7 @@
 <?php
+// Folder: src/Config/
+// File: DatabaseSchema.php
+
 namespace UmhMgmt\Config;
 
 class DatabaseSchema {
@@ -7,6 +10,8 @@ class DatabaseSchema {
         $charset_collate = $wpdb->get_charset_collate();
 
         return [
+            // --- 1. CORE & MASTER DATA ---
+
             "CREATE TABLE {$wpdb->prefix}umh_branches (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
@@ -14,6 +19,27 @@ class DatabaseSchema {
                 phone VARCHAR(20),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
+
+            // Tabel Hotels (Updated: Support Foto & Maps)
+            "CREATE TABLE {$wpdb->prefix}umh_hotels (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                location VARCHAR(255),
+                rating INT,
+                description TEXT,
+                image_url TEXT,
+                map_embed_code TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            "CREATE TABLE {$wpdb->prefix}umh_airlines (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                code VARCHAR(10),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            // --- 2. PRODUCT FACTORY (PACKAGES) ---
 
             "CREATE TABLE {$wpdb->prefix}umh_packages (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -55,15 +81,28 @@ class DatabaseSchema {
                 FOREIGN KEY (package_id) REFERENCES {$wpdb->prefix}umh_packages(id) ON DELETE CASCADE
             ) $charset_collate;",
 
+            // --- 3. OPERATIONAL & INVENTORY ---
+
             "CREATE TABLE {$wpdb->prefix}umh_departures (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 package_id BIGINT,
                 departure_date DATE NOT NULL,
+                total_seats INT DEFAULT 45,
                 available_seats INT DEFAULT 0,
                 status VARCHAR(50) DEFAULT 'open',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (package_id) REFERENCES {$wpdb->prefix}umh_packages(id) ON DELETE SET NULL
             ) $charset_collate;",
+
+            "CREATE TABLE {$wpdb->prefix}umh_inventory_items (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                item_code VARCHAR(50) NOT NULL,
+                item_name VARCHAR(255) NOT NULL,
+                stock_qty INT DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            // --- 4. BOOKING ENGINE ---
 
             "CREATE TABLE {$wpdb->prefix}umh_bookings (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -88,6 +127,8 @@ class DatabaseSchema {
                 FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
             ) $charset_collate;",
 
+            // --- 5. FINANCE & SAVINGS ---
+
             "CREATE TABLE {$wpdb->prefix}umh_savings_plans (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 customer_user_id BIGINT(20) UNSIGNED NOT NULL,
@@ -107,6 +148,18 @@ class DatabaseSchema {
                 FOREIGN KEY (plan_id) REFERENCES {$wpdb->prefix}umh_savings_plans(id) ON DELETE CASCADE
             ) $charset_collate;",
 
+            "CREATE TABLE {$wpdb->prefix}umh_journal_entries (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                transaction_ref_id VARCHAR(50),
+                account_code VARCHAR(20),
+                description TEXT,
+                debit DECIMAL(15,2) DEFAULT 0,
+                credit DECIMAL(15,2) DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            // --- 6. CRM & SPECIAL ---
+
             "CREATE TABLE {$wpdb->prefix}umh_haji_queue (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 customer_user_id BIGINT(20) UNSIGNED NOT NULL,
@@ -115,6 +168,18 @@ class DatabaseSchema {
                 status VARCHAR(50) DEFAULT 'waiting',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
+
+            "CREATE TABLE {$wpdb->prefix}umh_leads (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(100),
+                phone VARCHAR(20),
+                status VARCHAR(50) DEFAULT 'new',
+                source VARCHAR(100),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            // --- 7. HR & EMPLOYEE ---
 
             "CREATE TABLE {$wpdb->prefix}umh_employees (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -136,40 +201,29 @@ class DatabaseSchema {
                 FOREIGN KEY (employee_id) REFERENCES {$wpdb->prefix}umh_employees(id) ON DELETE CASCADE
             ) $charset_collate;",
 
-            "CREATE TABLE {$wpdb->prefix}umh_journal_entries (
+            // --- 8. ENTERPRISE SECURITY & AUDIT (NEW FEATURES) ---
+
+            // Tabel Audit Log: Merekam siapa melakukan apa
+            "CREATE TABLE {$wpdb->prefix}umh_audit_logs (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                transaction_ref_id VARCHAR(50),
-                account_code VARCHAR(20),
-                description TEXT,
-                debit DECIMAL(15,2) DEFAULT 0,
-                credit DECIMAL(15,2) DEFAULT 0,
+                user_id BIGINT UNSIGNED NOT NULL,
+                action VARCHAR(50) NOT NULL, -- e.g., 'create_booking', 'update_package'
+                object_type VARCHAR(50) NOT NULL, -- e.g., 'booking', 'package'
+                object_id BIGINT NOT NULL,
+                old_value LONGTEXT NULL, -- JSON data lama
+                new_value LONGTEXT NULL, -- JSON data baru
+                ip_address VARCHAR(45),
+                user_agent TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            "CREATE TABLE {$wpdb->prefix}umh_inventory_items (
+            // Tabel API Keys: Untuk akses Mobile Apps di masa depan
+            "CREATE TABLE {$wpdb->prefix}umh_api_keys (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                item_code VARCHAR(50) NOT NULL,
-                item_name VARCHAR(255) NOT NULL,
-                stock_qty INT DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) $charset_collate;",
-
-            // UPDATED: Tabel Hotels diperlengkap dengan Foto, Deskripsi, dan Maps
-            "CREATE TABLE {$wpdb->prefix}umh_hotels (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                location VARCHAR(255),
-                rating INT,
-                description TEXT,
-                image_url TEXT,
-                map_embed_code TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) $charset_collate;",
-
-            "CREATE TABLE {$wpdb->prefix}umh_airlines (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                code VARCHAR(10),
+                user_id BIGINT UNSIGNED NOT NULL,
+                api_key VARCHAR(64) NOT NULL UNIQUE,
+                permissions TEXT, -- JSON capabilities
+                last_used_at DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;"
         ];
