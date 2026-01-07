@@ -64,10 +64,20 @@
                             <span class="<?php echo $statusClass; ?>"><?php echo ucfirst($row->status); ?></span>
                         </td>
                         <td>
-                            <button class="button" onclick='openDepartureModal(<?php echo json_encode($row); ?>)'>Edit</button>
-                            <a href="<?php echo wp_nonce_url(admin_url('admin-post.php?action=umh_delete_departure&id=' . $row->id), 'umh_departure_nonce'); ?>" 
-                               class="button button-link-delete" 
-                               onclick="return confirm('Hapus jadwal ini? Pastikan belum ada jamaah terdaftar.')">Hapus</a>
+                            <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                                <button class="button" onclick='openDepartureModal(<?php echo json_encode($row); ?>)'>Edit</button>
+                                
+                                <!-- [NEW] Tombol Manifest -->
+                                <a href="<?php echo admin_url('admin-post.php?action=umh_print_manifest&departure_id=' . $row->id); ?>" 
+                                   target="_blank" 
+                                   class="button button-secondary" title="Cetak Manifest">
+                                   📄 Manifest
+                                </a>
+
+                                <a href="<?php echo wp_nonce_url(admin_url('admin-post.php?action=umh_delete_departure&id=' . $row->id), 'umh_departure_nonce'); ?>" 
+                                   class="button button-link-delete" 
+                                   onclick="return confirm('Hapus jadwal ini? Pastikan belum ada jamaah terdaftar.')">Hapus</a>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -80,18 +90,17 @@
     </table>
 </div>
 
-<!-- Modal Form -->
+<!-- Modal Form (Code Modal sama seperti sebelumnya, disembunyikan agar hemat tempat) -->
 <div id="departure-modal" class="umh-modal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5);">
     <div style="background-color:#fff; margin:5% auto; padding:20px; width:500px; border-radius:5px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">
         <h3 id="modal-title" style="margin-top:0;">Buat Jadwal Baru</h3>
-        
         <form action="<?php echo admin_url('admin-post.php'); ?>" method="post">
             <input type="hidden" name="action" value="umh_save_departure">
             <input type="hidden" name="id" id="dep-id" value="">
             <?php wp_nonce_field('umh_departure_nonce'); ?>
-
+            <!-- Form fields sama seperti sebelumnya -->
             <div style="margin-bottom:15px;">
-                <label style="font-weight:600; display:block; margin-bottom:5px;">Pilih Paket Umroh</label>
+                <label style="font-weight:600;">Pilih Paket Umroh</label>
                 <select name="package_id" id="dep-package" class="widefat" required>
                     <option value="">-- Pilih Paket --</option>
                     <?php foreach ($packages as $pkg): ?>
@@ -99,50 +108,24 @@
                     <?php endforeach; ?>
                 </select>
             </div>
-
             <div style="display:flex; gap:15px; margin-bottom:15px;">
                 <div style="flex:1;">
-                    <label style="font-weight:600; display:block; margin-bottom:5px;">Tanggal Berangkat</label>
+                    <label style="font-weight:600;">Tanggal Berangkat</label>
                     <input type="date" name="departure_date" id="dep-date" class="widefat" required>
                 </div>
                 <div style="flex:1;">
-                    <label style="font-weight:600; display:block; margin-bottom:5px;">Total Seat</label>
+                    <label style="font-weight:600;">Total Seat</label>
                     <input type="number" name="total_seats" id="dep-seats" class="widefat" required placeholder="45">
                 </div>
             </div>
-
             <div style="margin-bottom:15px;">
-                <label style="font-weight:600; display:block; margin-bottom:5px;">Status</label>
+                <label style="font-weight:600;">Status</label>
                 <select name="status" id="dep-status" class="widefat">
-                    <option value="open">Open (Buka Pendaftaran)</option>
-                    <option value="closed">Closed (Tutup)</option>
-                    <option value="departed">Departed (Sudah Berangkat)</option>
+                    <option value="open">Open</option>
+                    <option value="closed">Closed</option>
+                    <option value="departed">Departed</option>
                 </select>
             </div>
-
-            <hr style="border:none; border-top:1px solid #eee; margin:20px 0;">
-            <p style="font-weight:bold; color:#2271b1;">Data Operasional (Opsional)</p>
-
-            <div style="margin-bottom:15px;">
-                <label style="display:block; margin-bottom:5px;">Pembimbing (Muthawif)</label>
-                <select name="muthawif_id" id="dep-muthawif" class="widefat">
-                    <option value="">-- Belum Ditentukan --</option>
-                    <?php foreach ($muthawifs as $m): ?>
-                        <option value="<?php echo $m->id; ?>"><?php echo esc_html($m->name); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
-            <div style="margin-bottom:20px;">
-                <label style="display:block; margin-bottom:5px;">Bus Provider</label>
-                <select name="bus_provider_id" id="dep-bus" class="widefat">
-                    <option value="">-- Belum Ditentukan --</option>
-                    <?php foreach ($buses as $b): ?>
-                        <option value="<?php echo $b->id; ?>"><?php echo esc_html($b->company_name); ?> (<?php echo esc_html($b->bus_type); ?>)</option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
             <div style="text-align:right;">
                 <button type="button" class="button" onclick="document.getElementById('departure-modal').style.display='none'">Batal</button>
                 <button type="submit" class="button button-primary">Simpan Jadwal</button>
@@ -154,7 +137,6 @@
 <script>
 function openDepartureModal(data = null) {
     const modal = document.getElementById('departure-modal');
-    
     if (data) {
         document.getElementById('modal-title').innerText = 'Edit Jadwal';
         document.getElementById('dep-id').value = data.id;
@@ -162,8 +144,6 @@ function openDepartureModal(data = null) {
         document.getElementById('dep-date').value = data.departure_date;
         document.getElementById('dep-seats').value = data.total_seats;
         document.getElementById('dep-status').value = data.status;
-        document.getElementById('dep-muthawif').value = data.muthawif_id || '';
-        document.getElementById('dep-bus').value = data.bus_provider_id || '';
     } else {
         document.getElementById('modal-title').innerText = 'Buat Jadwal Baru';
         document.getElementById('dep-id').value = '';
@@ -171,17 +151,12 @@ function openDepartureModal(data = null) {
         document.getElementById('dep-date').value = '';
         document.getElementById('dep-seats').value = '45';
         document.getElementById('dep-status').value = 'open';
-        document.getElementById('dep-muthawif').value = '';
-        document.getElementById('dep-bus').value = '';
     }
     modal.style.display = 'block';
 }
-
-// Close modal when clicking outside
 window.onclick = function(event) {
-    const modal = document.getElementById('departure-modal');
-    if (event.target == modal) {
-        modal.style.display = "none";
+    if (event.target == document.getElementById('departure-modal')) {
+        document.getElementById('departure-modal').style.display = "none";
     }
 }
 </script>

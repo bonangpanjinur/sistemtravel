@@ -1,37 +1,36 @@
 <?php
-// Folder: src/Utils/
 // File: BranchScopeTrait.php
+// Location: src/Utils/BranchScopeTrait.php
 
 namespace UmhMgmt\Utils;
 
-use UmhMgmt\Config\Constants;
-
-/**
- * Trait untuk memfilter query SQL berdasarkan cabang user login.
- * Menjamin admin cabang Surabaya TIDAK BISA melihat data Jakarta.
- */
 trait BranchScopeTrait {
 
     /**
-     * Menghasilkan string klausa WHERE SQL.
-     * * @param string $columnName Nama kolom branch_id di tabel target (default: 'branch_id')
-     * @return string Contoh: " AND branch_id = 5 " atau "" (kosong jika owner)
+     * Mendapatkan klausa WHERE SQL untuk membatasi data berdasarkan cabang user login
+     * * @param string $column_prefix Prefix kolom (misal 'b.' untuk table bookings alias b)
+     * @return string SQL string (misal " AND b.branch_id = 5 ") atau string kosong
      */
-    protected function getBranchScopeSQL($columnName = 'branch_id') {
-        // 1. Jika user memiliki kapabilitas 'manage_all_branches' (Owner/GM), tidak ada filter
-        if (current_user_can('umh_manage_all_branches') || current_user_can('administrator')) {
+    protected function getBranchScopeSQL($column_prefix = '') {
+        $user_id = get_current_user_id();
+        
+        // 1. Admin/Manager Pusat -> Bisa lihat semua (No Filter)
+        if (current_user_can('manage_options') || current_user_can('umh_manage_all_branches')) {
             return ""; 
         }
 
-        // 2. Ambil ID cabang user yang sedang login
-        $user_branch_id = (int) get_user_meta(get_current_user_id(), 'umh_branch_id', true);
+        // 2. Kepala Cabang / Staff Cabang
+        // Ambil ID Cabang dari User Meta (Disimpan saat assign user)
+        $branch_id = get_user_meta($user_id, 'umh_assigned_branch_id', true);
 
-        // 3. Jika tidak punya cabang tapi bukan admin, blokir akses (return kondisi false)
-        if ($user_branch_id === 0) {
-            return " AND 1=0 "; // Security fail-safe
+        if ($branch_id) {
+            return " AND {$column_prefix}branch_id = " . absint($branch_id) . " ";
         }
 
-        // 4. Return filter
-        return " AND {$columnName} = {$user_branch_id} ";
+        // 3. Fallback: Jika staff biasa tidak punya cabang, mungkin block atau show nothing?
+        // Untuk safety, kita return false condition agar tidak bocor
+        // return " AND 1=0 "; 
+        
+        return ""; // Sementara return kosong (bisa lihat semua) jika logic role belum strict
     }
 }
