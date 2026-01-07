@@ -1,7 +1,4 @@
 <?php
-// Folder: src/Controllers/Admin/
-// File: MasterDataController.php
-
 namespace UmhMgmt\Controllers\Admin;
 
 use UmhMgmt\Utils\View;
@@ -18,12 +15,12 @@ class MasterDataController {
         add_action('admin_post_umh_save_airline', [$this, 'handle_save_airline']);
         add_action('admin_post_umh_delete_airline', [$this, 'handle_delete_airline']);
         
-        // Fitur Tambahan: Media Uploader (WP Core)
+        // Fitur Tambahan: Enqueue Media Uploader (WP Core)
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_scripts']);
     }
 
     public function enqueue_admin_scripts($hook) {
-        // Hanya load di halaman Master Data
+        // Hanya load di halaman Master Data agar ringan
         if (isset($_GET['page']) && $_GET['page'] === 'umh-master') {
             wp_enqueue_media(); 
         }
@@ -33,11 +30,11 @@ class MasterDataController {
         check_admin_referer('umh_master_nonce');
         if (!current_user_can('manage_options')) wp_die('Unauthorized');
 
-        // Sanitasi Khusus untuk Iframe Google Maps
+        // Sanitasi Khusus untuk Iframe Google Maps agar aman
         $map_code = '';
         if (isset($_POST['map_embed_code'])) {
             $raw_map = $_POST['map_embed_code'];
-            // Izinkan tag iframe dan atribut pentingnya
+            // Hanya izinkan tag iframe dengan atribut tertentu
             $allowed_html = [
                 'iframe' => [
                     'src' => [],

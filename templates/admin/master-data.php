@@ -7,7 +7,7 @@
     </nav>
 
     <?php if ($active_tab === 'hotels'): ?>
-        <div class="tab-content" style="margin-top: 20px; background:#fff; padding:20px; border:1px solid #ddd;">
+        <div class="tab-content" style="margin-top: 20px; background:#fff; padding:20px; border:1px solid #ccd0d4; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:15px;">
                 <h3>Daftar Hotel</h3>
                 <button class="button button-primary" onclick="openHotelModal()">Tambah Hotel Baru</button>
@@ -37,7 +37,7 @@
                                 </td>
                                 <td>
                                     <strong><?php echo esc_html($hotel->name); ?></strong><br>
-                                    <small><?php echo isset($hotel->description) ? wp_trim_words($hotel->description, 5) : ''; ?></small>
+                                    <small><?php echo isset($hotel->description) ? wp_trim_words($hotel->description, 8) : '-'; ?></small>
                                 </td>
                                 <td><?php echo esc_html($hotel->location); ?></td>
                                 <td>
@@ -45,22 +45,22 @@
                                 </td>
                                 <td>
                                     <?php if(!empty($hotel->map_embed_code)): ?>
-                                        <a href="#" onclick="toggleMap(<?php echo $hotel->id; ?>); return false;">Lihat Map</a>
-                                        <div id="map-preview-<?php echo $hotel->id; ?>" style="display:none; margin-top:5px; width:200px; height:150px; overflow:hidden;">
+                                        <a href="#" class="button button-small" onclick="toggleMap(<?php echo $hotel->id; ?>); return false;">Lihat Map</a>
+                                        <div id="map-preview-<?php echo $hotel->id; ?>" style="display:none; margin-top:5px; width:200px; height:150px; overflow:hidden; border:1px solid #ddd;">
                                             <?php echo $hotel->map_embed_code; ?>
                                         </div>
                                     <?php else: ?>
-                                        -
+                                        <span style="color:#999;">-</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
                                     <button class="button" onclick='openHotelModal(<?php echo json_encode($hotel); ?>)'>Edit</button>
-                                    <a href="<?php echo wp_nonce_url(admin_url('admin-post.php?action=umh_delete_hotel&id=' . $hotel->id), 'umh_master_nonce'); ?>" class="button button-link-delete" onclick="return confirm('Yakin hapus?')">Hapus</a>
+                                    <a href="<?php echo wp_nonce_url(admin_url('admin-post.php?action=umh_delete_hotel&id=' . $hotel->id), 'umh_master_nonce'); ?>" class="button button-link-delete" onclick="return confirm('Yakin ingin menghapus data hotel ini?')">Hapus</a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
-                        <tr><td colspan="6">Belum ada data hotel.</td></tr>
+                        <tr><td colspan="6">Belum ada data hotel. Silakan tambah data baru.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>
@@ -68,54 +68,60 @@
 
         <!-- Modal Hotel -->
         <div id="hotel-modal" class="umh-modal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5);">
-            <div style="background-color:#fff; margin:5% auto; padding:20px; width:600px; border-radius:5px; max-height:90vh; overflow-y:auto;">
-                <h3 id="hotel-modal-title" style="margin-top:0;">Tambah Hotel</h3>
+            <div style="background-color:#fff; margin:5% auto; padding:20px; width:600px; border-radius:5px; max-height:90vh; overflow-y:auto; box-shadow: 0 5px 15px rgba(0,0,0,0.3);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+                    <h3 id="hotel-modal-title" style="margin:0;">Tambah Hotel</h3>
+                    <button type="button" class="button-link" onclick="document.getElementById('hotel-modal').style.display='none'"><span class="dashicons dashicons-no-alt"></span></button>
+                </div>
+                
                 <form action="<?php echo admin_url('admin-post.php'); ?>" method="post">
                     <input type="hidden" name="action" value="umh_save_hotel">
                     <input type="hidden" name="id" id="hotel-id" value="">
                     <?php wp_nonce_field('umh_master_nonce'); ?>
 
-                    <div class="umh-row" style="display:flex; gap:15px; margin-bottom:10px;">
+                    <div style="display:flex; gap:15px; margin-bottom:15px;">
                         <div style="flex:2;">
-                            <label>Nama Hotel</label>
-                            <input type="text" name="name" id="hotel-name" required class="widefat">
+                            <label style="font-weight:600;">Nama Hotel</label>
+                            <input type="text" name="name" id="hotel-name" required class="widefat" placeholder="Misal: Hilton Convention Makkah">
                         </div>
                         <div style="flex:1;">
-                            <label>Rating (Bintang)</label>
-                            <input type="number" name="rating" id="hotel-rating" min="1" max="5" required class="widefat">
-                        </div>
-                    </div>
-
-                    <div style="margin-bottom:10px;">
-                        <label>Lokasi (Kota/Area)</label>
-                        <input type="text" name="location" id="hotel-location" required class="widefat" placeholder="Contoh: Mekkah, 500m dari Masjidil Haram">
-                    </div>
-
-                    <div style="margin-bottom:10px;">
-                        <label>Deskripsi & Fasilitas</label>
-                        <textarea name="description" id="hotel-description" rows="4" class="widefat"></textarea>
-                    </div>
-
-                    <div style="margin-bottom:15px; border:1px solid #ddd; padding:10px; background:#f9f9f9;">
-                        <label style="font-weight:bold;">Foto Hotel</label><br>
-                        <div style="display:flex; gap:10px; align-items:flex-start;">
-                            <div style="flex:1;">
-                                <input type="text" name="image_url" id="hotel-image-url" class="widefat" placeholder="URL Gambar..." readonly>
-                                <button type="button" class="button" id="upload-hotel-image" style="margin-top:5px;">Pilih / Upload Foto</button>
-                            </div>
-                            <div id="hotel-image-preview" style="width:100px; height:70px; background:#eee; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                                <span class="dashicons dashicons-format-image" style="color:#ccc;"></span>
-                            </div>
+                            <label style="font-weight:600;">Rating (Bintang)</label>
+                            <input type="number" name="rating" id="hotel-rating" min="1" max="5" required class="widefat" placeholder="5">
                         </div>
                     </div>
 
                     <div style="margin-bottom:15px;">
-                        <label style="font-weight:bold;">Google Maps Embed Code</label>
-                        <p class="description">Buka Google Maps > Share > Embed a map > Copy HTML (iframe).</p>
-                        <textarea name="map_embed_code" id="hotel-map" rows="3" class="widefat" placeholder='<iframe src="...'></iframe>'></textarea>
+                        <label style="font-weight:600;">Lokasi (Kota/Area)</label>
+                        <input type="text" name="location" id="hotel-location" required class="widefat" placeholder="Contoh: Mekkah, 500m dari Masjidil Haram">
                     </div>
 
-                    <div style="text-align:right; border-top:1px solid #eee; padding-top:10px;">
+                    <div style="margin-bottom:15px;">
+                        <label style="font-weight:600;">Deskripsi & Fasilitas</label>
+                        <textarea name="description" id="hotel-description" rows="4" class="widefat" placeholder="Jelaskan fasilitas hotel, jarak ke masjid, dll..."></textarea>
+                    </div>
+
+                    <div style="margin-bottom:15px; border:1px solid #ddd; padding:15px; background:#f9f9f9; border-radius:4px;">
+                        <label style="font-weight:600; display:block; margin-bottom:5px;">Foto Hotel</label>
+                        <div style="display:flex; gap:10px; align-items:flex-start;">
+                            <div style="flex:1;">
+                                <input type="text" name="image_url" id="hotel-image-url" class="widefat" placeholder="URL Gambar..." readonly>
+                                <button type="button" class="button" id="upload-hotel-image" style="margin-top:8px;">
+                                    <span class="dashicons dashicons-upload"></span> Pilih / Upload Foto
+                                </button>
+                            </div>
+                            <div id="hotel-image-preview" style="width:100px; height:80px; background:#eee; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid #ccc; border-radius:4px;">
+                                <span class="dashicons dashicons-format-image" style="color:#ccc; font-size:30px; height:30px; width:30px;"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom:20px;">
+                        <label style="font-weight:600;">Google Maps Embed Code</label>
+                        <p class="description" style="margin-top:2px; margin-bottom:5px;">Buka Google Maps > Share > Embed a map > Copy HTML.</p>
+                        <textarea name="map_embed_code" id="hotel-map" rows="3" class="widefat" placeholder='<iframe src="https://www.google.com/maps/embed?..." width="600" height="450" ...></iframe>'></textarea>
+                    </div>
+
+                    <div style="text-align:right; border-top:1px solid #eee; padding-top:15px;">
                         <button type="button" class="button" onclick="document.getElementById('hotel-modal').style.display='none'">Batal</button>
                         <button type="submit" class="button button-primary">Simpan Data Hotel</button>
                     </div>
@@ -126,8 +132,8 @@
     
     <!-- Bagian Maskapai -->
     <?php if ($active_tab === 'airlines'): ?>
-         <div class="tab-content" style="margin-top: 20px; background:#fff; padding:20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+         <div class="tab-content" style="margin-top: 20px; background:#fff; padding:20px; border:1px solid #ccd0d4;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:15px;">
                 <h3>Daftar Maskapai</h3>
                 <button class="button button-primary" onclick="openAirlineModal()">Tambah Maskapai</button>
             </div>
@@ -182,41 +188,48 @@
 </div>
 
 <script>
-// Toggle Map Preview
+// 1. Toggle Map Preview
 function toggleMap(id) {
     var el = document.getElementById('map-preview-' + id);
-    if(el.style.display === 'none') el.style.display = 'block';
-    else el.style.display = 'none';
+    if(el.style.display === 'none') {
+        el.style.display = 'block';
+    } else {
+        el.style.display = 'none';
+    }
 }
 
-// Media Uploader Logic
+// 2. WordPress Media Uploader Logic
 jQuery(document).ready(function($){
     var mediaUploader;
     
     $('#upload-hotel-image').click(function(e) {
         e.preventDefault();
+        
+        // Jika uploader sudah ada, buka saja
         if (mediaUploader) {
             mediaUploader.open();
             return;
         }
         
+        // Inisialisasi wp.media
         mediaUploader = wp.media.frames.file_frame = wp.media({
             title: 'Pilih Foto Hotel',
             button: { text: 'Gunakan Foto Ini' },
-            multiple: false
+            multiple: false // Single file only
         });
         
+        // Saat gambar dipilih
         mediaUploader.on('select', function() {
             var attachment = mediaUploader.state().get('selection').first().toJSON();
             $('#hotel-image-url').val(attachment.url);
-            $('#hotel-image-preview').html('<img src="' + attachment.url + '" style="max-width:100%; height:auto; border-radius:4px;">');
+            $('#hotel-image-preview').html('<img src="' + attachment.url + '" style="width:100%; height:100%; object-fit:cover;">');
         });
         
         mediaUploader.open();
     });
 });
 
-// Modal Logic
+// 3. Modal Logic
 function openHotelModal(data = null) {
     const modal = document.getElementById('hotel-modal');
     const title = document.getElementById('hotel-modal-title');
@@ -232,9 +245,9 @@ function openHotelModal(data = null) {
         document.getElementById('hotel-map').value = data.map_embed_code || '';
         
         if(data.image_url) {
-            document.getElementById('hotel-image-preview').innerHTML = '<img src="' + data.image_url + '" style="max-width:100%; height:auto;">';
+            document.getElementById('hotel-image-preview').innerHTML = '<img src="' + data.image_url + '" style="width:100%; height:100%; object-fit:cover;">';
         } else {
-             document.getElementById('hotel-image-preview').innerHTML = '<span class="dashicons dashicons-format-image" style="color:#ccc;"></span>';
+             document.getElementById('hotel-image-preview').innerHTML = '<span class="dashicons dashicons-format-image" style="color:#ccc; font-size:30px;"></span>';
         }
     } else {
         title.innerText = 'Tambah Hotel Baru';
@@ -245,7 +258,7 @@ function openHotelModal(data = null) {
         document.getElementById('hotel-description').value = '';
         document.getElementById('hotel-image-url').value = '';
         document.getElementById('hotel-map').value = '';
-        document.getElementById('hotel-image-preview').innerHTML = '<span class="dashicons dashicons-format-image" style="color:#ccc;"></span>';
+        document.getElementById('hotel-image-preview').innerHTML = '<span class="dashicons dashicons-format-image" style="color:#ccc; font-size:30px;"></span>';
     }
     modal.style.display = 'block';
 }
