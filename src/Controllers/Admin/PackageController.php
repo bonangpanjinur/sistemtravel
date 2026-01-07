@@ -39,10 +39,24 @@ class PackageController {
         $hotels = $wpdb->get_results("SELECT id, name FROM {$wpdb->prefix}umh_hotels");
         $airlines = $wpdb->get_results("SELECT id, name FROM {$wpdb->prefix}umh_airlines");
         
-        View::render('admin/packages/form', [
+        $data = [
             'hotels' => $hotels,
             'airlines' => $airlines
-        ]);
+        ];
+
+        // Jika mode Edit, load data lengkap
+        if (isset($_GET['id'])) {
+            $id = absint($_GET['id']);
+            $package = $this->repo->find($id);
+            if ($package) {
+                $data['package'] = $package;
+                $data['pricing'] = $this->repo->getPricing($id);
+                $data['itinerary'] = $this->repo->getItinerary($id);
+                $data['facilities'] = $this->repo->getFacilities($id);
+            }
+        }
+        
+        View::render('admin/packages/form', $data);
     }
 
     public function handle_save_package() {
@@ -71,10 +85,10 @@ class PackageController {
                 $package_id = $wpdb->insert_id;
             }
 
-            // Save Pricing
+            // 1. Save Pricing Tiers
             $wpdb->delete("{$wpdb->prefix}umh_package_pricing", ['package_id' => $package_id]);
-            $pricing = ['quad', 'triple', 'double'];
-            foreach ($pricing as $type) {
+            $pricing_types = ['quad', 'triple', 'double'];
+            foreach ($pricing_types as $type) {
                 if (isset($_POST['price_' . $type])) {
                     $wpdb->insert("{$wpdb->prefix}umh_package_pricing", [
                         'package_id' => $package_id,
@@ -84,16 +98,44 @@ class PackageController {
                 }
             }
 
-            // Save Itinerary
+            // 2. Save Itinerary
             $wpdb->delete("{$wpdb->prefix}umh_package_itineraries", ['package_id' => $package_id]);
             if (isset($_POST['itinerary']) && is_array($_POST['itinerary'])) {
-                foreach ($_POST['itinerary'] as $day => $item) {
+                foreach ($_POST['itinerary'] as $index => $item) {
+                    if (empty($item['title'])) continue;
                     $wpdb->insert("{$wpdb->prefix}umh_package_itineraries", [
                         'package_id' => $package_id,
-                        'day_number' => $day + 1,
+                        'day_number' => $index + 1,
                         'title' => sanitize_text_field($item['title']),
                         'description' => sanitize_textarea_field($item['description']),
                         'location' => sanitize_text_field($item['location'])
+                    ]);
+                }
+            }
+
+            // 3. Save Facilities (Included/Excluded)
+            $wpdb->delete("{$wpdb->prefix}umh_package_facilities", ['package_id' => $package_id]);
+            
+            // Included
+            if (isset($_POST['facilities']['included']) && is_array($_POST['facilities']['included'])) {
+                foreach ($_POST['facilities']['included'] as $facility) {
+                    if (empty($facility)) continue;
+                    $wpdb->insert("{$wpdb->prefix}umh_package_facilities", [
+                        'package_id' => $package_id,
+                        'facility_name' => sanitize_text_field($facility),
+                        'type' => 'included'
+                    ]);
+                }
+            }
+            
+            // Excluded
+            if (isset($_POST['facilities']['excluded']) && is_array($_POST['facilities']['excluded'])) {
+                foreach ($_POST['facilities']['excluded'] as $facility) {
+                    if (empty($facility)) continue;
+                    $wpdb->insert("{$wpdb->prefix}umh_package_facilities", [
+                        'package_id' => $package_id,
+                        'facility_name' => sanitize_text_field($facility),
+                        'type' => 'excluded'
                     ]);
                 }
             }
