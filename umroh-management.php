@@ -1,9 +1,12 @@
 <?php
+// File: umroh-management.php
+// Location: umroh-management.php
+
 /**
  * Plugin Name: Umroh Management System (Enterprise Edition)
  * Plugin URI: https://example.com/umroh-management
  * Description: Sistem manajemen travel umroh dengan arsitektur PSR-4 dan keamanan audit yang ditingkatkan.
- * Version: 2.2.0
+ * Version: 2.2.1
  * Author: bonangpanjinur
  * Text Domain: umroh-management
  */
@@ -14,7 +17,7 @@ if (!defined('ABSPATH')) {
 
 define('UMH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('UMH_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('UMH_VERSION', '2.2.0');
+define('UMH_VERSION', '2.2.1');
 
 // Simple PSR-4 Autoloader
 spl_autoload_register(function ($class) {
@@ -66,7 +69,7 @@ class UMH_Management {
             new \UmhMgmt\Controllers\Admin\DashboardController();
             new \UmhMgmt\Controllers\Admin\MasterDataController();
             new \UmhMgmt\Controllers\Admin\PackageController();
-            new \UmhMgmt\Controllers\Admin\DepartureController();
+            new \UmhMgmt\Controllers\Admin\DepartureController(); // Fixed Departures
             new \UmhMgmt\Controllers\Admin\BookingController();
             new \UmhMgmt\Controllers\Admin\FinanceController();
             new \UmhMgmt\Controllers\Admin\CRMController();
@@ -79,9 +82,10 @@ class UMH_Management {
             new \UmhMgmt\Controllers\Admin\CustomerCareController();
         } 
         
-        // Frontend Controllers harus diload juga (atau minimal hook-nya)
-        // Kita instansiasi selalu agar AJAX handler terdaftar
+        // Frontend Controllers
         new \UmhMgmt\Controllers\Frontend\BookingFormController();
+        // [NEW] Catalog Controller
+        new \UmhMgmt\Controllers\Frontend\PackageCatalogController();
     }
 }
 
