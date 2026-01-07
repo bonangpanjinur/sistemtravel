@@ -1,6 +1,6 @@
 <?php
-// Folder: src/Config/
 // File: DatabaseSchema.php
+// Location: src/Config/DatabaseSchema.php
 
 namespace UmhMgmt\Config;
 
@@ -182,13 +182,21 @@ class DatabaseSchema {
                 FOREIGN KEY (branch_id) REFERENCES {$wpdb->prefix}umh_branches(id) ON DELETE SET NULL
             ) $charset_collate;",
 
+            // [UPDATED] Tabel Penumpang Booking (Menambahkan Kolom Dokumen)
             "CREATE TABLE {$wpdb->prefix}umh_booking_passengers (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 booking_id BIGINT,
                 name VARCHAR(255) NOT NULL,
                 passport_number VARCHAR(50),
                 passport_expiry DATE,
-                is_tour_leader TINYINT(1) DEFAULT 0, -- Flag Tour Leader
+                is_tour_leader TINYINT(1) DEFAULT 0,
+                
+                -- [NEW COLUMNS] Document Files
+                passport_file_url TEXT,
+                ktp_file_url TEXT,
+                photo_file_url TEXT,
+                doc_verification_status VARCHAR(20) DEFAULT 'pending', -- pending, verified, rejected
+                
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
             ) $charset_collate;",

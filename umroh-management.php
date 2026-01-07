@@ -6,7 +6,7 @@
  * Plugin Name: Umroh Management System (Enterprise Edition)
  * Plugin URI: https://example.com/umroh-management
  * Description: Sistem manajemen travel umroh dengan arsitektur PSR-4 dan keamanan audit yang ditingkatkan.
- * Version: 2.3.0
+ * Version: 2.3.1
  * Author: bonangpanjinur
  * Text Domain: umroh-management
  */
@@ -17,58 +17,38 @@ if (!defined('ABSPATH')) {
 
 define('UMH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('UMH_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('UMH_VERSION', '2.3.0');
+define('UMH_VERSION', '2.3.1');
 
-// Simple PSR-4 Autoloader
+// PSR-4 Autoloader
 spl_autoload_register(function ($class) {
     $prefix = 'UmhMgmt\\';
     $base_dir = UMH_PLUGIN_DIR . 'src/';
-
     $len = strlen($prefix);
-    if (strncmp($prefix, $class, $len) !== 0) {
-        return;
-    }
-
+    if (strncmp($prefix, $class, $len) !== 0) return;
     $relative_class = substr($class, $len);
     $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
-
-    if (file_exists($file)) {
-        require $file;
-    }
+    if (file_exists($file)) require $file;
 });
 
-/**
- * The code that runs during plugin activation.
- */
-function activate_umh_management() {
+// Activation Hook (Create Tables)
+register_activation_hook(__FILE__, function() {
     global $wpdb;
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-    
     $schemas = \UmhMgmt\Config\DatabaseSchema::get_schema();
-    foreach ($schemas as $sql) {
-        dbDelta($sql);
-    }
-    
-    // Init Roles saat aktivasi
+    foreach ($schemas as $sql) dbDelta($sql);
     \UmhMgmt\Config\RoleManager::init();
-}
-register_activation_hook(__FILE__, 'activate_umh_management');
+});
 
-/**
- * Initialize the plugin
- */
 class UMH_Management {
     public function __construct() {
         \UmhMgmt\Config\RoleManager::init();
-        
-        // Init Services (Listeners)
         new \UmhMgmt\Services\NotificationService();
-        
         $this->init_controllers();
     }
 
     private function init_controllers() {
         if (is_admin()) {
+            // Admin Controllers...
             new \UmhMgmt\Controllers\Admin\DashboardController();
             new \UmhMgmt\Controllers\Admin\MasterDataController();
             new \UmhMgmt\Controllers\Admin\PackageController();
@@ -88,12 +68,10 @@ class UMH_Management {
         // Frontend Controllers
         new \UmhMgmt\Controllers\Frontend\BookingFormController();
         new \UmhMgmt\Controllers\Frontend\PackageCatalogController();
-        // [NEW] Dashboard Area untuk Jemaah
         new \UmhMgmt\Controllers\Frontend\JemaahDashboardController();
+        // [NEW] Document Controller
+        new \UmhMgmt\Controllers\Frontend\DocumentController();
     }
 }
 
-function run_umh_management() {
-    new UMH_Management();
-}
-run_umh_management();
+new UMH_Management();
