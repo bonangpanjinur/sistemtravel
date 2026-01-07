@@ -1,0 +1,21 @@
+{
+    "name": "bonangpanjinur/sistemtravel",
+    "description": "Umroh Management System (Enterprise Edition)",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "bonangpanjinur",
+            "email": "bonangpanjinur@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">=7.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "UmhMgmt\\": "src/"
+        }
+    }
+}

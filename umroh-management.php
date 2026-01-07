@@ -1,10 +1,10 @@
 <?php
 /**
- * Plugin Name: Umroh Management System (Full Enterprise)
+ * Plugin Name: Umroh Management System (Enterprise Edition)
  * Plugin URI: https://example.com/umroh-management
- * Description: Sistem manajemen travel umroh End-to-End mencakup Marketing, Sales, Operasional, Keuangan, HR, hingga Customer Care.
- * Version: 1.0.0
- * Author: Manus AI
+ * Description: Sistem manajemen travel umroh dengan arsitektur PSR-4 dan keamanan audit yang ditingkatkan.
+ * Version: 2.0.0
+ * Author: bonangpanjinur
  * Text Domain: umroh-management
  */
 
@@ -14,67 +14,60 @@ if (!defined('ABSPATH')) {
 
 define('UMH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('UMH_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('UMH_VERSION', '1.0.0');
+define('UMH_VERSION', '2.0.0');
 
-// Include core classes
-require_once UMH_PLUGIN_DIR . 'includes/class-umh-activator.php';
-require_once UMH_PLUGIN_DIR . 'includes/class-umh-deactivator.php';
-require_once UMH_PLUGIN_DIR . 'includes/class-umh-db.php';
+// Simple PSR-4 Autoloader (since composer is not available in this environment)
+spl_autoload_register(function ($class) {
+    $prefix = 'UmhMgmt\\';
+    $base_dir = UMH_PLUGIN_DIR . 'src/';
+
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+
+    $relative_class = substr($class, $len);
+    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
+
+    if (file_exists($file)) {
+        require $file;
+    }
+});
 
 /**
  * The code that runs during plugin activation.
  */
 function activate_umh_management() {
-    require_once UMH_PLUGIN_DIR . 'includes/class-umh-activator.php';
-    UMH_Activator::activate();
+    global $wpdb;
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    
+    $schemas = \UmhMgmt\Config\DatabaseSchema::get_schema();
+    foreach ($schemas as $sql) {
+        dbDelta($sql);
+    }
 }
-
-/**
- * The code that runs during plugin deactivation.
- */
-function deactivate_umh_management() {
-    require_once UMH_PLUGIN_DIR . 'includes/class-umh-deactivator.php';
-    UMH_Deactivator::deactivate();
-}
-
 register_activation_hook(__FILE__, 'activate_umh_management');
-register_deactivation_hook(__FILE__, 'deactivation_umh_management');
 
 /**
  * Initialize the plugin
  */
 class UMH_Management {
     public function __construct() {
-        $this->load_dependencies();
-        $this->define_admin_hooks();
-        $this->define_public_hooks();
+        $this->init_controllers();
     }
 
-    private function load_dependencies() {
-        require_once UMH_PLUGIN_DIR . 'includes/class-umh-helper.php';
-        require_once UMH_PLUGIN_DIR . 'includes/class-umh-api.php';
-        require_once UMH_PLUGIN_DIR . 'includes/class-umh-booking.php';
-        require_once UMH_PLUGIN_DIR . 'includes/class-umh-finance.php';
-        require_once UMH_PLUGIN_DIR . 'includes/class-umh-package.php';
-    }
-
-    public function run() {
-        new UMH_API();
-    }
-
-    private function define_admin_hooks() {
-        require_once UMH_PLUGIN_DIR . 'admin/class-umh-admin.php';
-        new UMH_Admin();
-    }
-
-    private function define_public_hooks() {
-        // Public hooks
+    private function init_controllers() {
+        if (is_admin()) {
+            // Controllers will be initialized here
+            new \UmhMgmt\Controllers\Admin\DashboardController();
+            new \UmhMgmt\Controllers\Admin\PackageController();
+        } else {
+            new \UmhMgmt\Controllers\Frontend\BookingFormController();
+        }
     }
 }
 
 function run_umh_management() {
-    $plugin = new UMH_Management();
-    $plugin->run();
+    new UMH_Management();
 }
-
 run_umh_management();
