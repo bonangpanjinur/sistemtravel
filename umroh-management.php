@@ -3,7 +3,7 @@
  * Plugin Name: Umroh Management System (Enterprise Edition)
  * Plugin URI: https://example.com/umroh-management
  * Description: Sistem manajemen travel umroh dengan arsitektur PSR-4 dan keamanan audit yang ditingkatkan.
- * Version: 2.1.0
+ * Version: 2.2.0
  * Author: bonangpanjinur
  * Text Domain: umroh-management
  */
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
 
 define('UMH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('UMH_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('UMH_VERSION', '2.1.0');
+define('UMH_VERSION', '2.2.0');
 
 // Simple PSR-4 Autoloader
 spl_autoload_register(function ($class) {
@@ -54,6 +54,10 @@ register_activation_hook(__FILE__, 'activate_umh_management');
 class UMH_Management {
     public function __construct() {
         \UmhMgmt\Config\RoleManager::init();
+        
+        // Init Services (Listeners)
+        new \UmhMgmt\Services\NotificationService();
+        
         $this->init_controllers();
     }
 
@@ -73,9 +77,11 @@ class UMH_Management {
             new \UmhMgmt\Controllers\Admin\AgentsHRController();
             new \UmhMgmt\Controllers\Admin\SpecialServicesController();
             new \UmhMgmt\Controllers\Admin\CustomerCareController();
-        } else {
-            new \UmhMgmt\Controllers\Frontend\BookingFormController();
-        }
+        } 
+        
+        // Frontend Controllers harus diload juga (atau minimal hook-nya)
+        // Kita instansiasi selalu agar AJAX handler terdaftar
+        new \UmhMgmt\Controllers\Frontend\BookingFormController();
     }
 }
 

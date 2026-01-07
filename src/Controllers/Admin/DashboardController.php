@@ -1,12 +1,18 @@
 <?php
+// Folder: src/Controllers/Admin/
+// File: DashboardController.php
+
 namespace UmhMgmt\Controllers\Admin;
 
 use UmhMgmt\Utils\View;
-use UmhMgmt\Repositories\BookingRepository;
-use UmhMgmt\Repositories\OperationalRepository;
+use UmhMgmt\Repositories\DashboardRepository;
+use UmhMgmt\Config\Constants;
 
 class DashboardController {
+    private $repo;
+
     public function __construct() {
+        $this->repo = new DashboardRepository();
         add_action('admin_menu', [$this, 'add_menu_page']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
     }
@@ -21,7 +27,7 @@ class DashboardController {
         add_menu_page(
             'Umroh Mgmt',
             'Umroh Mgmt',
-            'manage_options',
+            Constants::CAP_MANAGE_OPTIONS,
             'umh-dashboard',
             [$this, 'render_dashboard'],
             'dashicons-airplane',
@@ -30,32 +36,12 @@ class DashboardController {
     }
 
     public function render_dashboard() {
-        global $wpdb;
-        
-        // 1. Ambil Total Omzet (Paid Only)
-        $revenue = $wpdb->get_var("SELECT SUM(total_price) FROM {$wpdb->prefix}umh_bookings WHERE status='paid'");
-        
-        // 2. Ambil Total Jamaah Bulan Ini
-        $jamaah_month = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}umh_bookings WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())");
-        
-        // 3. Ambil Total Booking
-        $total_bookings = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}umh_bookings");
-
-        // 4. Ambil 5 Keberangkatan Terdekat
-        $departures = $wpdb->get_results("
-            SELECT d.*, p.name as package_name 
-            FROM {$wpdb->prefix}umh_departures d
-            LEFT JOIN {$wpdb->prefix}umh_packages p ON d.package_id = p.id
-            WHERE d.departure_date >= CURRENT_DATE() 
-            ORDER BY d.departure_date ASC 
-            LIMIT 5
-        ");
-
+        // SECURITY FIX: Menggunakan Repository, tidak ada Raw SQL disini
         $data = [
-            'total_bookings' => $total_bookings ?: 0,
-            'total_revenue'  => $revenue ?: 0,
-            'jamaah_month'   => $jamaah_month ?: 0,
-            'upcoming_departures' => $departures
+            'total_bookings' => $this->repo->getTotalBookings() ?: 0,
+            'total_revenue'  => $this->repo->getTotalRevenue() ?: 0,
+            'jamaah_month'   => $this->repo->getJamaahThisMonth() ?: 0,
+            'upcoming_departures' => $this->repo->getUpcomingDepartures(5)
         ];
 
         View::render('admin/dashboard', $data);
