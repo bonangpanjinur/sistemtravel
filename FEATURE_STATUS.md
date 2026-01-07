@@ -33,19 +33,21 @@ Dokumen ini merangkum status fitur berdasarkan Roadmap Pengembangan 16 Sprint.
 
 ---
 
-## ⏳ Fitur yang Belum Diimplementasikan (Roadmap Mendatang)
+## ✅ Fitur yang Baru Saja Diimplementasikan
 
 ### FASE 2: Marketing & Sales (Lanjutan)
-- [ ] **CRM & Lead Management**: Campaign manager dan Kanban board status prospek.
-- [ ] **Document Tracking**: Digital archive untuk scan paspor/KTP dan status fisik dokumen.
+- [x] **CRM & Lead Management**: Campaign manager dan Kanban board status prospek.
+- [x] **Document Tracking**: Digital archive untuk scan paspor/KTP dan status fisik dokumen.
 
 ### FASE 3: Finance & Banking (Lanjutan)
-- [ ] **Sistem Tabungan Umroh**: Virtual account per jamaah dan konversi saldo ke booking.
-- [ ] **Refund Management**: Workflow pengajuan refund/pembatalan.
+- [x] **Sistem Tabungan Umroh**: Virtual account per jamaah dan konversi saldo ke booking.
+- [x] **Refund Management**: Workflow pengajuan refund/pembatalan.
 
 ### FASE 4: Operasional Keberangkatan
-- [ ] **Visa & Rooming List**: Drag-and-drop jamaah ke kamar hotel dan grouping visa.
-- [ ] **Logistik & Manasik**: Inventory gudang perlengkapan dan absensi manasik via QR Code.
+- [x] **Visa & Rooming List**: Drag-and-drop jamaah ke kamar hotel dan grouping visa.
+- [x] **Logistik & Manasik**: Inventory gudang perlengkapan dan absensi manasik via QR Code.
+
+## ⏳ Fitur yang Belum Diimplementasikan (Roadmap Mendatang)
 
 ### FASE 5: HR & Keagenan
 - [ ] **Sistem Keagenan**: Agent tiering (Silver/Gold/Master) dan perhitungan komisi otomatis.

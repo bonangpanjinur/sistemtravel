@@ -711,11 +711,108 @@ class UMH_Admin {
     }
 
     public function display_crm() {
+        $leads = $this->wpdb->get_results("SELECT * FROM {$this->wpdb->prefix}umh_leads ORDER BY created_at DESC");
+        $statuses = ['new' => 'New', 'contacted' => 'Contacted', 'hot' => 'Hot', 'deal' => 'Deal', 'lost' => 'Lost'];
+        
+        // Document Tracking Data
+        $docs = $this->wpdb->get_results("
+            SELECT d.*, j.full_name 
+            FROM {$this->wpdb->prefix}umh_doc_tracking d
+            JOIN {$this->wpdb->prefix}umh_jamaah j ON d.jamaah_id = j.id
+            ORDER BY d.updated_at DESC
+        ");
         ?>
         <div class="wrap">
             <h1>CRM & Lead Management</h1>
-            <p>Fitur ini sedang dalam pengembangan.</p>
+            
+            <h2 class="nav-tab-wrapper">
+                <a href="#kanban" class="nav-tab nav-tab-active">Kanban Board</a>
+                <a href="#docs" class="nav-tab">Document Tracking</a>
+            </h2>
+
+            <div id="kanban-section" class="tab-content">
+                <div style="display: flex; gap: 15px; margin-top: 20px; overflow-x: auto; padding-bottom: 20px;">
+                    <?php foreach ($statuses as $key => $label): ?>
+                        <div style="flex: 1; min-width: 250px; background: #f0f0f1; border-radius: 5px; padding: 10px;">
+                            <h3 style="border-bottom: 2px solid #ccc; padding-bottom: 5px;"><?php echo $label; ?></h3>
+                            <?php foreach ($leads as $lead): 
+                                if ($lead->status !== $key) continue; ?>
+                                <div style="background: #fff; padding: 10px; margin-bottom: 10px; border-radius: 3px; border-left: 4px solid #2271b1; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                    <strong><?php echo $lead->name; ?></strong><br>
+                                    <small><?php echo $lead->phone; ?></small><br>
+                                    <div style="margin-top: 5px;">
+                                        <select onchange="updateLeadStatus(<?php echo $lead->id; ?>, this.value)" style="font-size: 11px;">
+                                            <?php foreach ($statuses as $s_key => $s_label): ?>
+                                                <option value="<?php echo $s_key; ?>" <?php selected($lead->status, $s_key); ?>><?php echo $s_label; ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <div id="docs-section" class="tab-content" style="display:none; margin-top: 20px;">
+                <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                    <h3>Digital Archive & Document Status</h3>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>Jamaah</th>
+                                <th>Tipe Dokumen</th>
+                                <th>Status Fisik</th>
+                                <th>Update Terakhir</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($docs)): ?>
+                                <tr><td colspan="5">Belum ada data dokumen.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($docs as $doc): ?>
+                                    <tr>
+                                        <td><?php echo $doc->full_name; ?></td>
+                                        <td><?php echo strtoupper($doc->doc_type); ?></td>
+                                        <td>
+                                            <select onchange="updateDocStatus(<?php echo $doc->id; ?>, this.value)">
+                                                <option value="jamaah" <?php selected($doc->status, 'jamaah'); ?>>Di Jamaah</option>
+                                                <option value="office" <?php selected($doc->status, 'office'); ?>>Di Kantor</option>
+                                                <option value="provider" <?php selected($doc->status, 'provider'); ?>>Di Provider</option>
+                                                <option value="done" <?php selected($doc->status, 'done'); ?>>Selesai</option>
+                                            </select>
+                                        </td>
+                                        <td><?php echo $doc->updated_at; ?></td>
+                                        <td><button class="button button-small">Lihat Scan</button></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
+        <script>
+            function updateLeadStatus(id, status) {
+                // AJAX implementation here
+                alert('Status Lead ' + id + ' diubah ke ' + status);
+            }
+            function updateDocStatus(id, status) {
+                // AJAX implementation here
+                alert('Status Dokumen ' + id + ' diubah ke ' + status);
+            }
+            
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('nav-tab-active'));
+                    this.classList.add('nav-tab-active');
+                    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+                    document.querySelector(this.getAttribute('href') + '-section').style.display = 'block';
+                });
+            });
+        </script>
         <?php
     }
 
@@ -817,28 +914,230 @@ class UMH_Admin {
     }
 
     public function display_operational() {
+        $departures = $this->wpdb->get_results("
+            SELECT d.*, p.name as package_name 
+            FROM {$this->wpdb->prefix}umh_departures d
+            JOIN {$this->wpdb->prefix}umh_packages p ON d.package_id = p.id
+            ORDER BY d.departure_date ASC
+        ");
+        
+        $inventory = $this->wpdb->get_results("SELECT * FROM {$this->wpdb->prefix}umh_inventory_items");
         ?>
         <div class="wrap">
-            <h1>Operational Management</h1>
-            <p>Fitur ini sedang dalam pengembangan.</p>
+            <h1>Operational & Logistics</h1>
+            
+            <h2 class="nav-tab-wrapper">
+                <a href="#rooming" class="nav-tab nav-tab-active">Rooming & Visa</a>
+                <a href="#logistics" class="nav-tab">Logistik & Inventory</a>
+                <a href="#manasik" class="nav-tab">Manasik & Absensi</a>
+            </h2>
+
+            <div id="rooming-section" class="tab-content" style="margin-top: 20px;">
+                <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                    <h3>Rooming List & Visa Grouping</h3>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>Keberangkatan</th>
+                                <th>Paket</th>
+                                <th>Total Jamaah</th>
+                                <th>Status Visa</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($departures as $dep): 
+                                $jamaah_count = $this->wpdb->get_var($this->wpdb->prepare("SELECT COUNT(*) FROM {$this->wpdb->prefix}umh_jamaah WHERE departure_id = %d", $dep->id));
+                                ?>
+                                <tr>
+                                    <td><strong><?php echo date('d M Y', strtotime($dep->departure_date)); ?></strong></td>
+                                    <td><?php echo $dep->package_name; ?></td>
+                                    <td><?php echo $jamaah_count; ?> Jamaah</td>
+                                    <td><span class="status-open">Ready to Group</span></td>
+                                    <td>
+                                        <button class="button button-small">Manage Rooming</button>
+                                        <button class="button button-small">Visa Batch</button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="logistics-section" class="tab-content" style="display:none; margin-top: 20px;">
+                <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                    <h3>Inventory Gudang Perlengkapan</h3>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>Kode</th>
+                                <th>Nama Barang</th>
+                                <th>Kategori</th>
+                                <th>Stok</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($inventory)): ?>
+                                <tr><td colspan="5">Belum ada data inventory.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($inventory as $item): ?>
+                                    <tr>
+                                        <td><?php echo $item->item_code; ?></td>
+                                        <td><?php echo $item->item_name; ?></td>
+                                        <td><?php echo ucfirst($item->category); ?></td>
+                                        <td><?php echo $item->stock_qty; ?></td>
+                                        <td>
+                                            <?php if ($item->stock_qty <= $item->min_stock_alert): ?>
+                                                <span style="color: red; font-weight: bold;">Low Stock!</span>
+                                            <?php else: ?>
+                                                <span style="color: green;">Safe</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="manasik-section" class="tab-content" style="display:none; margin-top: 20px;">
+                <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                    <h3>Jadwal Manasik & Absensi QR</h3>
+                    <p>Pilih keberangkatan untuk mengelola absensi manasik.</p>
+                    <select style="width: 300px;">
+                        <?php foreach ($departures as $dep): ?>
+                            <option><?php echo date('d M Y', strtotime($dep->departure_date)); ?> - <?php echo $dep->package_name; ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button class="button">Generate QR Absensi</button>
+                </div>
+            </div>
         </div>
+        <script>
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('nav-tab-active'));
+                    this.classList.add('nav-tab-active');
+                    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+                    document.querySelector(this.getAttribute('href') + '-section').style.display = 'block';
+                });
+            });
+        </script>
         <?php
     }
 
-    public function display_agents_hr() {
+        public function display_savings() {
+        $accounts = $this->wpdb->get_results("
+            SELECT s.*, u.display_name as user_name, p.name as package_name 
+            FROM {$this->wpdb->prefix}umh_savings_accounts s
+            JOIN {$this->wpdb->prefix}users u ON s.user_id = u.ID
+            LEFT JOIN {$this->wpdb->prefix}umh_packages p ON s.package_id = p.id
+        ");
         ?>
         <div class="wrap">
-            <h1>Agents & HR Management</h1>
-            <p>Fitur ini sedang dalam pengembangan.</p>
+            <h1>Sistem Tabungan Umroh</h1>
+            <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; margin-top: 20px;">
+                <h3>Daftar Rekening Tabungan (Virtual Account)</h3>
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th>Jamaah</th>
+                            <th>Paket Target</th>
+                            <th>Target Dana</th>
+                            <th>Saldo Saat Ini</th>
+                            <th>Progress</th>
+                            <th>Status</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($accounts)): ?>
+                            <tr><td colspan="7">Belum ada rekening tabungan.</td></tr>
+                        <?php else: ?>
+                            <?php foreach ($accounts as $acc): 
+                                $progress = ($acc->target_amount > 0) ? ($acc->current_balance / $acc->target_amount) * 100 : 0;
+                                ?>
+                                <tr>
+                                    <td><strong><?php echo $acc->user_name; ?></strong></td>
+                                    <td><?php echo $acc->package_name ?: 'Belum ditentukan'; ?></td>
+                                    <td>Rp <?php echo number_format($acc->target_amount, 0, ',', '.'); ?></td>
+                                    <td>Rp <?php echo number_format($acc->current_balance, 0, ',', '.'); ?></td>
+                                    <td>
+                                        <div style="background: #eee; width: 100%; height: 10px; border-radius: 5px;">
+                                            <div style="background: #4caf50; width: <?php echo min(100, $progress); ?>%; height: 10px; border-radius: 5px;"></div>
+                                        </div>
+                                        <small><?php echo round($progress, 1); ?>%</small>
+                                    </td>
+                                    <td><span class="status-<?php echo $acc->status; ?>"><?php echo ucfirst($acc->status); ?></span></td>
+                                    <td>
+                                        <button class="button button-small">Setor</button>
+                                        <?php if ($progress >= 100): ?>
+                                            <button class="button button-small button-primary">Konversi ke Booking</button>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
         <?php
-    }
+    } }
 
     public function display_special_services() {
+        $refunds = $this->wpdb->get_results("
+            SELECT r.*, b.booking_code, b.contact_name 
+            FROM {$this->wpdb->prefix}umh_booking_requests r
+            JOIN {$this->wpdb->prefix}umh_bookings b ON r.booking_id = b.id
+            WHERE r.request_type = 'refund'
+            ORDER BY r.created_at DESC
+        ");
         ?>
         <div class="wrap">
-            <h1>Special Services</h1>
-            <p>Fitur ini sedang dalam pengembangan.</p>
+            <h1>Refund & Cancellation Management</h1>
+            <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; margin-top: 20px;">
+                <h3>Workflow Pengajuan Refund</h3>
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th>Booking</th>
+                            <th>Jamaah/Kontak</th>
+                            <th>Alasan</th>
+                            <th>Jumlah Refund</th>
+                            <th>Status</th>
+                            <th>Tanggal</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php if (empty($refunds)): ?>
+                            <tr><td colspan="7">Belum ada pengajuan refund.</td></tr>
+                        <?php else: ?>
+                            <?php foreach ($refunds as $ref): ?>
+                                <tr>
+                                    <td><strong><?php echo $ref->booking_code; ?></strong></td>
+                                    <td><?php echo $ref->contact_name; ?></td>
+                                    <td><?php echo $ref->reason; ?></td>
+                                    <td>Rp <?php echo number_format($ref->amount_requested, 0, ',', '.'); ?></td>
+                                    <td><span class="status-<?php echo $ref->status; ?>"><?php echo ucfirst($ref->status); ?></span></td>
+                                    <td><?php echo date('d/m/Y', strtotime($ref->created_at)); ?></td>
+                                    <td>
+                                        <?php if ($ref->status == 'pending'): ?>
+                                            <button class="button button-small" style="background: #4caf50; color: white;">Setujui</button>
+                                            <button class="button button-small" style="background: #f44336; color: white;">Tolak</button>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
         <?php
     }
