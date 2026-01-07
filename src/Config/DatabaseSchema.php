@@ -183,10 +183,17 @@ class DatabaseSchema {
                 passport_number VARCHAR(50),
                 passport_expiry DATE,
                 is_tour_leader TINYINT(1) DEFAULT 0,
+                
+                -- Document Files
                 passport_file_url TEXT,
                 ktp_file_url TEXT,
                 photo_file_url TEXT,
                 doc_verification_status VARCHAR(20) DEFAULT 'pending',
+                
+                -- Rooming List Info
+                assigned_room_number VARCHAR(20),
+                assigned_room_type VARCHAR(20),
+                
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
             ) $charset_collate;",
