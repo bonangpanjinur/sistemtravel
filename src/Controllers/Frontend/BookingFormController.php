@@ -22,8 +22,31 @@ class BookingFormController {
     }
 
     public function handle_form_submission() {
-        // Handle form submission logic here
-        // check_admin_referer('umh_booking_nonce');
-        // $this->service->createBooking($_POST);
+        if (!isset($_POST['umh_booking_nonce']) || !wp_verify_nonce($_POST['umh_booking_nonce'], 'umh_booking_nonce')) {
+            wp_die('Security check failed');
+        }
+
+        $sanitized_data = [
+            'departure_id' => isset($_POST['departure_id']) ? absint($_POST['departure_id']) : 0,
+            'passengers' => []
+        ];
+
+        if (isset($_POST['passengers']) && is_array($_POST['passengers'])) {
+            foreach ($_POST['passengers'] as $passenger) {
+                $sanitized_data['passengers'][] = [
+                    'name' => isset($passenger['name']) ? sanitize_text_field($passenger['name']) : '',
+                    'passport_number' => isset($passenger['passport_number']) ? sanitize_text_field($passenger['passport_number']) : '',
+                    'passport_expiry' => isset($passenger['passport_expiry']) ? sanitize_text_field($passenger['passport_expiry']) : '',
+                ];
+            }
+        }
+
+        try {
+            $booking_id = $this->service->createBooking($sanitized_data);
+            wp_redirect(add_query_arg('booking_status', 'success', wp_get_referer()));
+            exit;
+        } catch (\Exception $e) {
+            wp_die($e->getMessage());
+        }
     }
 }

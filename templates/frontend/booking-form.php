@@ -9,10 +9,40 @@
         </select>
     </div>
 
-    <div class="umh-form-group">
-        <label for="passport_expiry">Passport Expiry Date</label>
-        <input type="date" name="passport_expiry" id="passport_expiry" required>
+    <div id="passenger-repeater">
+        <h3>Passenger Details</h3>
+        <div class="passenger-item" data-index="0">
+            <div class="umh-form-group">
+                <label>Name</label>
+                <input type="text" name="passengers[0][name]" required>
+            </div>
+            <div class="umh-form-group">
+                <label>Passport Number</label>
+                <input type="text" name="passengers[0][passport_number]" required>
+            </div>
+            <div class="umh-form-group">
+                <label>Passport Expiry</label>
+                <input type="date" name="passengers[0][passport_expiry]" required>
+            </div>
+        </div>
     </div>
 
+    <button type="button" id="add-passenger" class="button">Add Passenger</button>
     <button type="submit" class="button button-primary">Book Now</button>
 </form>
+
+<script>
+document.getElementById('add-passenger').addEventListener('click', function() {
+    const container = document.getElementById('passenger-repeater');
+    const index = container.querySelectorAll('.passenger-item').length;
+    const newItem = container.querySelector('.passenger-item').cloneNode(true);
+    
+    newItem.setAttribute('data-index', index);
+    newItem.querySelectorAll('input').forEach(input => {
+        input.name = input.name.replace(/\[\d+\]/, `[${index}]`);
+        input.value = '';
+    });
+    
+    container.appendChild(newItem);
+});
+</script>

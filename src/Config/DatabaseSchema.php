@@ -22,7 +22,8 @@ class DatabaseSchema {
                 departure_date DATE NOT NULL,
                 available_seats INT DEFAULT 0,
                 status VARCHAR(50) DEFAULT 'open',
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (package_id) REFERENCES {$wpdb->prefix}umh_packages(id) ON DELETE SET NULL
             ) $charset_collate;",
 
             "CREATE TABLE {$wpdb->prefix}umh_bookings (
@@ -32,7 +33,8 @@ class DatabaseSchema {
                 total_price DECIMAL(15,2) NOT NULL,
                 status VARCHAR(50) DEFAULT 'pending',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                deleted_at DATETIME NULL DEFAULT NULL
+                deleted_at DATETIME NULL DEFAULT NULL,
+                FOREIGN KEY (departure_id) REFERENCES {$wpdb->prefix}umh_departures(id) ON DELETE SET NULL
             ) $charset_collate;",
 
             "CREATE TABLE {$wpdb->prefix}umh_booking_passengers (
@@ -41,7 +43,8 @@ class DatabaseSchema {
                 name VARCHAR(255) NOT NULL,
                 passport_number VARCHAR(50),
                 passport_expiry DATE,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
             ) $charset_collate;",
 
             "CREATE TABLE {$wpdb->prefix}umh_jamaah (
