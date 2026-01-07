@@ -10,9 +10,8 @@ class DatabaseSchema {
         $charset_collate = $wpdb->get_charset_collate();
 
         return [
-            // ... (Kode Tabel Master Data & Packages TETAP SAMA seperti sebelumnya) ...
-
             // --- 1. CORE & MASTER DATA ---
+
             "CREATE TABLE {$wpdb->prefix}umh_branches (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
@@ -96,6 +95,7 @@ class DatabaseSchema {
             ) $charset_collate;",
 
             // --- 2. PACKAGES ---
+
             "CREATE TABLE {$wpdb->prefix}umh_packages (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
@@ -137,6 +137,7 @@ class DatabaseSchema {
             ) $charset_collate;",
 
             // --- 3. DEPARTURES & INVENTORY ---
+
             "CREATE TABLE {$wpdb->prefix}umh_departures (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 package_id BIGINT,
@@ -159,17 +160,14 @@ class DatabaseSchema {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            // --- 4. BOOKING ENGINE (UPDATED FOR AGENTS) ---
+            // --- 4. BOOKING ENGINE ---
 
             "CREATE TABLE {$wpdb->prefix}umh_bookings (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 departure_id BIGINT,
                 branch_id BIGINT,
                 customer_user_id BIGINT(20) UNSIGNED NULL,
-                
-                -- [NEW] Kolom Agen
-                agent_id BIGINT(20) UNSIGNED NULL, 
-                
+                agent_id BIGINT(20) UNSIGNED NULL,
                 total_price DECIMAL(15,2) NOT NULL,
                 status VARCHAR(50) DEFAULT 'pending',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -193,32 +191,25 @@ class DatabaseSchema {
                 FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
             ) $charset_collate;",
 
-            // --- [NEW] 9. AGENT SYSTEM ---
+            // --- 5. FINANCE & PAYMENTS ---
 
-            // Tabel Komisi Agen
-            "CREATE TABLE {$wpdb->prefix}umh_commissions (
+            // [NEW] Tabel Pembayaran Masuk (Incoming Payments from Jemaah)
+            "CREATE TABLE {$wpdb->prefix}umh_payments (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                agent_id BIGINT(20) UNSIGNED NOT NULL,
                 booking_id BIGINT NOT NULL,
-                amount DECIMAL(15,2) DEFAULT 0,
-                status VARCHAR(50) DEFAULT 'pending', -- pending, available, paid, cancelled
-                description VARCHAR(255), -- 'Komisi Booking #123'
+                user_id BIGINT(20) UNSIGNED NOT NULL,
+                amount DECIMAL(15,2) NOT NULL,
+                payment_method VARCHAR(50) DEFAULT 'bank_transfer',
+                bank_target VARCHAR(100),
+                sender_name VARCHAR(100),
+                proof_file_url TEXT,
+                status VARCHAR(50) DEFAULT 'pending_verification',
+                verified_by BIGINT(20) UNSIGNED,
+                verified_at DATETIME,
+                notes TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
             ) $charset_collate;",
-
-            // Tabel Payout (Pencairan Komisi)
-            "CREATE TABLE {$wpdb->prefix}umh_agent_payouts (
-                id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                agent_id BIGINT(20) UNSIGNED NOT NULL,
-                amount DECIMAL(15,2) NOT NULL,
-                status VARCHAR(50) DEFAULT 'requested', -- requested, processed, rejected
-                payment_proof_url TEXT,
-                notes TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            ) $charset_collate;",
-
-            // --- 5, 6, 7, 8 TETAP SAMA ---
 
             "CREATE TABLE {$wpdb->prefix}umh_savings_plans (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -249,6 +240,31 @@ class DatabaseSchema {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
+            // --- 6. AGENT SYSTEM ---
+
+            "CREATE TABLE {$wpdb->prefix}umh_commissions (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                agent_id BIGINT(20) UNSIGNED NOT NULL,
+                booking_id BIGINT NOT NULL,
+                amount DECIMAL(15,2) DEFAULT 0,
+                status VARCHAR(50) DEFAULT 'pending',
+                description VARCHAR(255),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
+            ) $charset_collate;",
+
+            "CREATE TABLE {$wpdb->prefix}umh_agent_payouts (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                agent_id BIGINT(20) UNSIGNED NOT NULL,
+                amount DECIMAL(15,2) NOT NULL,
+                status VARCHAR(50) DEFAULT 'requested',
+                payment_proof_url TEXT,
+                notes TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            // --- 7. CRM & SPECIAL ---
+
             "CREATE TABLE {$wpdb->prefix}umh_haji_queue (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 customer_user_id BIGINT(20) UNSIGNED NOT NULL,
@@ -267,6 +283,8 @@ class DatabaseSchema {
                 source VARCHAR(100),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
+
+            // --- 8. HR & EMPLOYEE ---
 
             "CREATE TABLE {$wpdb->prefix}umh_employees (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -287,6 +305,8 @@ class DatabaseSchema {
                 payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (employee_id) REFERENCES {$wpdb->prefix}umh_employees(id) ON DELETE CASCADE
             ) $charset_collate;",
+
+            // --- 9. SECURITY & AUDIT ---
 
             "CREATE TABLE {$wpdb->prefix}umh_audit_logs (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,

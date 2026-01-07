@@ -6,7 +6,7 @@
  * Plugin Name: Umroh Management System (Enterprise Edition)
  * Plugin URI: https://example.com/umroh-management
  * Description: Sistem manajemen travel umroh dengan arsitektur PSR-4 dan keamanan audit yang ditingkatkan.
- * Version: 2.3.2
+ * Version: 2.3.4
  * Author: bonangpanjinur
  * Text Domain: umroh-management
  */
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 
 define('UMH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('UMH_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('UMH_VERSION', '2.3.2');
+define('UMH_VERSION', '2.3.4');
 
 // PSR-4 Autoloader
 spl_autoload_register(function ($class) {
@@ -53,7 +53,10 @@ class UMH_Management {
             new \UmhMgmt\Controllers\Admin\PackageController();
             new \UmhMgmt\Controllers\Admin\DepartureController(); 
             new \UmhMgmt\Controllers\Admin\BookingController();
+            
+            // [UPDATED] Finance Logic
             new \UmhMgmt\Controllers\Admin\FinanceController();
+            
             new \UmhMgmt\Controllers\Admin\CRMController();
             new \UmhMgmt\Controllers\Admin\SavingsPlanController();
             new \UmhMgmt\Controllers\Admin\EmployeeController();
@@ -62,6 +65,7 @@ class UMH_Management {
             new \UmhMgmt\Controllers\Admin\AgentsHRController();
             new \UmhMgmt\Controllers\Admin\SpecialServicesController();
             new \UmhMgmt\Controllers\Admin\CustomerCareController();
+            new \UmhMgmt\Controllers\Admin\AgentCommissionController();
         } 
         
         // Frontend Controllers
@@ -69,9 +73,10 @@ class UMH_Management {
         new \UmhMgmt\Controllers\Frontend\PackageCatalogController();
         new \UmhMgmt\Controllers\Frontend\JemaahDashboardController();
         new \UmhMgmt\Controllers\Frontend\DocumentController();
-        
-        // [NEW] Agent Dashboard
         new \UmhMgmt\Controllers\Frontend\AgentDashboardController();
+        
+        // [NEW] Payment Submission
+        new \UmhMgmt\Controllers\Frontend\PaymentController();
     }
 }
 
