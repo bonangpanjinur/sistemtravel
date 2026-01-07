@@ -13,8 +13,13 @@ class BookingRepository {
 
     public function create($data) {
         global $wpdb;
+        
+        // Get current user's branch if applicable
+        $branch_id = isset($data['branch_id']) ? $data['branch_id'] : get_user_meta(get_current_user_id(), 'umh_branch_id', true);
+
         $wpdb->insert($this->table, [
             'departure_id' => $data['departure_id'],
+            'branch_id' => $branch_id ?: null,
             'customer_user_id' => $data['customer_user_id'],
             'total_price' => $data['total_price'],
             'status' => 'pending'

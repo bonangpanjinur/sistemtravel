@@ -53,6 +53,7 @@ register_activation_hook(__FILE__, 'activate_umh_management');
  */
 class UMH_Management {
     public function __construct() {
+        \UmhMgmt\Config\RoleManager::init();
         $this->init_controllers();
     }
 
@@ -65,7 +66,9 @@ class UMH_Management {
             new \UmhMgmt\Controllers\Admin\BookingController();
             new \UmhMgmt\Controllers\Admin\FinanceController();
             new \UmhMgmt\Controllers\Admin\CRMController();
-            new \UmhMgmt\Controllers\Admin\SavingsController();
+            new \UmhMgmt\Controllers\Admin\SavingsPlanController();
+            new \UmhMgmt\Controllers\Admin\EmployeeController();
+            new \UmhMgmt\Controllers\Admin\BranchController();
             new \UmhMgmt\Controllers\Admin\OperationalController();
             new \UmhMgmt\Controllers\Admin\AgentsHRController();
             new \UmhMgmt\Controllers\Admin\SpecialServicesController();

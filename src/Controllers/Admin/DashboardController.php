@@ -30,13 +30,32 @@ class DashboardController {
     }
 
     public function render_dashboard() {
-        $bookingRepo = new BookingRepository();
-        $departureRepo = new OperationalRepository();
+        global $wpdb;
+        
+        // 1. Ambil Total Omzet (Paid Only)
+        $revenue = $wpdb->get_var("SELECT SUM(total_price) FROM {$wpdb->prefix}umh_bookings WHERE status='paid'");
+        
+        // 2. Ambil Total Jamaah Bulan Ini
+        $jamaah_month = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}umh_bookings WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) AND YEAR(created_at) = YEAR(CURRENT_DATE())");
+        
+        // 3. Ambil Total Booking
+        $total_bookings = $wpdb->get_var("SELECT COUNT(*) FROM {$wpdb->prefix}umh_bookings");
+
+        // 4. Ambil 5 Keberangkatan Terdekat
+        $departures = $wpdb->get_results("
+            SELECT d.*, p.name as package_name 
+            FROM {$wpdb->prefix}umh_departures d
+            LEFT JOIN {$wpdb->prefix}umh_packages p ON d.package_id = p.id
+            WHERE d.departure_date >= CURRENT_DATE() 
+            ORDER BY d.departure_date ASC 
+            LIMIT 5
+        ");
 
         $data = [
-            'total_bookings' => $bookingRepo->countAll(),
-            'total_revenue'  => $bookingRepo->sumRevenue(),
-            'upcoming_departures' => $departureRepo->getUpcomingDepartures(5)
+            'total_bookings' => $total_bookings ?: 0,
+            'total_revenue'  => $revenue ?: 0,
+            'jamaah_month'   => $jamaah_month ?: 0,
+            'upcoming_departures' => $departures
         ];
 
         View::render('admin/dashboard', $data);
