@@ -6,7 +6,7 @@
  * Plugin Name: Umroh Management System (Enterprise Edition)
  * Plugin URI: https://example.com/umroh-management
  * Description: Sistem manajemen travel umroh dengan arsitektur PSR-4 dan keamanan audit yang ditingkatkan.
- * Version: 2.3.5
+ * Version: 2.4.3
  * Author: bonangpanjinur
  * Text Domain: umroh-management
  */
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 
 define('UMH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('UMH_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('UMH_VERSION', '2.3.5');
+define('UMH_VERSION', '2.4.3');
 
 // PSR-4 Autoloader
 spl_autoload_register(function ($class) {
@@ -63,9 +63,12 @@ class UMH_Management {
             new \UmhMgmt\Controllers\Admin\SpecialServicesController();
             new \UmhMgmt\Controllers\Admin\CustomerCareController();
             new \UmhMgmt\Controllers\Admin\AgentCommissionController();
-            
-            // [NEW] Manifest Controller
             new \UmhMgmt\Controllers\Admin\ManifestController();
+            new \UmhMgmt\Controllers\Admin\RoomingListController();
+            new \UmhMgmt\Controllers\Admin\VisaController();
+            new \UmhMgmt\Controllers\Admin\IntegrationController();
+            new \UmhMgmt\Controllers\Admin\ReportController();
+            new \UmhMgmt\Controllers\Admin\InventoryScannerController();
         } 
         
         // Frontend Controllers
@@ -75,6 +78,10 @@ class UMH_Management {
         new \UmhMgmt\Controllers\Frontend\DocumentController();
         new \UmhMgmt\Controllers\Frontend\AgentDashboardController();
         new \UmhMgmt\Controllers\Frontend\PaymentController();
+        new \UmhMgmt\Controllers\Frontend\DigitalIdController();
+        
+        // [NEW] Certificate
+        new \UmhMgmt\Controllers\Frontend\CertificateController();
     }
 }
 
