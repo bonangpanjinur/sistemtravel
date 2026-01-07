@@ -2,6 +2,8 @@
 namespace UmhMgmt\Controllers\Admin;
 
 use UmhMgmt\Utils\View;
+use UmhMgmt\Repositories\BookingRepository;
+use UmhMgmt\Repositories\OperationalRepository;
 
 class DashboardController {
     public function __construct() {
@@ -28,6 +30,15 @@ class DashboardController {
     }
 
     public function render_dashboard() {
-        View::render('admin/dashboard');
+        $bookingRepo = new BookingRepository();
+        $departureRepo = new OperationalRepository();
+
+        $data = [
+            'total_bookings' => $bookingRepo->countAll(),
+            'total_revenue'  => $bookingRepo->sumRevenue(),
+            'upcoming_departures' => $departureRepo->getUpcomingDepartures(5)
+        ];
+
+        View::render('admin/dashboard', $data);
     }
 }

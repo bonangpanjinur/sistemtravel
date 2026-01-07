@@ -10,7 +10,7 @@
         <div class="tab-content" style="margin-top: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h3>Daftar Hotel</h3>
-                <button class="button button-primary" onclick="document.getElementById('hotel-modal').style.display='block'">Tambah Hotel</button>
+                <button class="button button-primary" onclick="openHotelModal()">Tambah Hotel</button>
             </div>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
@@ -29,6 +29,7 @@
                                 <td><?php echo esc_html($hotel->location); ?></td>
                                 <td><?php echo esc_html($hotel->rating); ?> Stars</td>
                                 <td>
+                                    <button class="button" onclick='openHotelModal(<?php echo json_encode($hotel); ?>)'>Edit</button>
                                     <a href="<?php echo wp_nonce_url(admin_url('admin-post.php?action=umh_delete_hotel&id=' . $hotel->id), 'umh_master_nonce'); ?>" class="button button-link-delete" onclick="return confirm('Yakin ingin menghapus?')">Hapus</a>
                                 </td>
                             </tr>
@@ -42,21 +43,22 @@
 
         <div id="hotel-modal" class="umh-modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5);">
             <div style="background-color:#fff; margin:10% auto; padding:20px; width:400px; border-radius:5px;">
-                <h3>Tambah/Edit Hotel</h3>
+                <h3 id="hotel-modal-title">Tambah Hotel</h3>
                 <form action="<?php echo admin_url('admin-post.php'); ?>" method="post">
                     <input type="hidden" name="action" value="umh_save_hotel">
+                    <input type="hidden" name="id" id="hotel-id" value="">
                     <?php wp_nonce_field('umh_master_nonce'); ?>
                     <div style="margin-bottom:10px;">
                         <label>Nama Hotel</label><br>
-                        <input type="text" name="name" required style="width:100%;">
+                        <input type="text" name="name" id="hotel-name" required style="width:100%;">
                     </div>
                     <div style="margin-bottom:10px;">
                         <label>Lokasi</label><br>
-                        <input type="text" name="location" required style="width:100%;">
+                        <input type="text" name="location" id="hotel-location" required style="width:100%;">
                     </div>
                     <div style="margin-bottom:10px;">
                         <label>Rating</label><br>
-                        <input type="number" name="rating" min="1" max="5" required style="width:100%;">
+                        <input type="number" name="rating" id="hotel-rating" min="1" max="5" required style="width:100%;">
                     </div>
                     <button type="submit" class="button button-primary">Simpan</button>
                     <button type="button" class="button" onclick="document.getElementById('hotel-modal').style.display='none'">Batal</button>
@@ -69,7 +71,7 @@
         <div class="tab-content" style="margin-top: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h3>Daftar Maskapai</h3>
-                <button class="button button-primary" onclick="document.getElementById('airline-modal').style.display='block'">Tambah Maskapai</button>
+                <button class="button button-primary" onclick="openAirlineModal()">Tambah Maskapai</button>
             </div>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
@@ -86,6 +88,7 @@
                                 <td><?php echo esc_html($airline->name); ?></td>
                                 <td><?php echo esc_html($airline->code); ?></td>
                                 <td>
+                                    <button class="button" onclick='openAirlineModal(<?php echo json_encode($airline); ?>)'>Edit</button>
                                     <a href="<?php echo wp_nonce_url(admin_url('admin-post.php?action=umh_delete_airline&id=' . $airline->id), 'umh_master_nonce'); ?>" class="button button-link-delete" onclick="return confirm('Yakin ingin menghapus?')">Hapus</a>
                                 </td>
                             </tr>
@@ -99,17 +102,18 @@
 
         <div id="airline-modal" class="umh-modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background-color:rgba(0,0,0,0.5);">
             <div style="background-color:#fff; margin:10% auto; padding:20px; width:400px; border-radius:5px;">
-                <h3>Tambah/Edit Maskapai</h3>
+                <h3 id="airline-modal-title">Tambah Maskapai</h3>
                 <form action="<?php echo admin_url('admin-post.php'); ?>" method="post">
                     <input type="hidden" name="action" value="umh_save_airline">
+                    <input type="hidden" name="id" id="airline-id" value="">
                     <?php wp_nonce_field('umh_master_nonce'); ?>
                     <div style="margin-bottom:10px;">
                         <label>Nama Maskapai</label><br>
-                        <input type="text" name="name" required style="width:100%;">
+                        <input type="text" name="name" id="airline-name" required style="width:100%;">
                     </div>
                     <div style="margin-bottom:10px;">
                         <label>Kode</label><br>
-                        <input type="text" name="code" required style="width:100%;">
+                        <input type="text" name="code" id="airline-code" required style="width:100%;">
                     </div>
                     <button type="submit" class="button button-primary">Simpan</button>
                     <button type="button" class="button" onclick="document.getElementById('airline-modal').style.display='none'">Batal</button>
@@ -119,3 +123,49 @@
     <?php endif; ?>
 </div>
 
+<script>
+function openHotelModal(data = null) {
+    const modal = document.getElementById('hotel-modal');
+    const title = document.getElementById('hotel-modal-title');
+    const idInput = document.getElementById('hotel-id');
+    const nameInput = document.getElementById('hotel-name');
+    const locationInput = document.getElementById('hotel-location');
+    const ratingInput = document.getElementById('hotel-rating');
+
+    if (data) {
+        title.innerText = 'Edit Hotel';
+        idInput.value = data.id;
+        nameInput.value = data.name;
+        locationInput.value = data.location;
+        ratingInput.value = data.rating;
+    } else {
+        title.innerText = 'Tambah Hotel';
+        idInput.value = '';
+        nameInput.value = '';
+        locationInput.value = '';
+        ratingInput.value = '';
+    }
+    modal.style.display = 'block';
+}
+
+function openAirlineModal(data = null) {
+    const modal = document.getElementById('airline-modal');
+    const title = document.getElementById('airline-modal-title');
+    const idInput = document.getElementById('airline-id');
+    const nameInput = document.getElementById('airline-name');
+    const codeInput = document.getElementById('airline-code');
+
+    if (data) {
+        title.innerText = 'Edit Maskapai';
+        idInput.value = data.id;
+        nameInput.value = data.name;
+        codeInput.value = data.code;
+    } else {
+        title.innerText = 'Tambah Maskapai';
+        idInput.value = '';
+        nameInput.value = '';
+        codeInput.value = '';
+    }
+    modal.style.display = 'block';
+}
+</script>

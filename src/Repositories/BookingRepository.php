@@ -29,4 +29,14 @@ class BookingRepository {
             $count, $departure_id
         ));
     }
+
+    public function countAll() {
+        global $wpdb;
+        return (int) $wpdb->get_var("SELECT COUNT(*) FROM {$this->table}");
+    }
+
+    public function sumRevenue() {
+        global $wpdb;
+        return (float) $wpdb->get_var("SELECT SUM(total_price) FROM {$this->table} WHERE status = 'paid'");
+    }
 }
