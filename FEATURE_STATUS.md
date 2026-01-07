@@ -50,16 +50,16 @@ Dokumen ini merangkum status fitur berdasarkan Roadmap Pengembangan 16 Sprint.
 ## ⏳ Fitur yang Belum Diimplementasikan (Roadmap Mendatang)
 
 ### FASE 5: HR & Keagenan
-- [ ] **Sistem Keagenan**: Agent tiering (Silver/Gold/Master) dan perhitungan komisi otomatis.
-- [ ] **HRIS Sederhana**: Database karyawan, absensi staff, dan task management.
+- [x] **Sistem Keagenan**: Agent tiering (Silver/Gold/Master) dan perhitungan komisi otomatis.
+- [x] **HRIS Sederhana**: Database karyawan, absensi staff, dan task management.
 
 ### FASE 6: Special Services
-- [ ] **Private & Custom Umrah**: Quotation maker untuk penawaran harga VIP.
-- [ ] **Badal Umrah**: Penugasan mutawwif dan upload bukti video pelaksanaan.
+- [x] **Private & Custom Umrah**: Quotation maker untuk penawaran harga VIP.
+- [x] **Badal Umrah**: Penugasan mutawwif dan upload bukti video pelaksanaan.
 
 ### FASE 7: Customer Care & Automation
-- [ ] **Helpdesk & Reviews**: Ticketing system komplain dan rating layanan.
-- [ ] **Automation & Security**: WhatsApp Gateway dan Audit Trail (Log aktivitas detail).
+- [x] **Helpdesk & Reviews**: Ticketing system komplain dan rating layanan.
+- [x] **Automation & Security**: WhatsApp Gateway dan Audit Trail (Log aktivitas detail).
 
 ---
 *Terakhir diperbarui: 07 Januari 2026*

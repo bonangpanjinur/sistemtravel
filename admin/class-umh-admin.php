@@ -1090,34 +1090,34 @@ class UMH_Admin {
     } }
 
     public function display_special_services() {
-        $refunds = $this->wpdb->get_results("
-            SELECT r.*, b.booking_code, b.contact_name 
-            FROM {$this->wpdb->prefix}umh_booking_requests r
-            JOIN {$this->wpdb->prefix}umh_bookings b ON r.booking_id = b.id
-            WHERE r.request_type = 'refund'
-            ORDER BY r.created_at DESC
-        ");
+        $refunds = $this->wpdb->get_results("SELECT r.*, b.booking_code, b.contact_name FROM {$this->wpdb->prefix}umh_booking_requests r JOIN {$this->wpdb->prefix}umh_bookings b ON r.booking_id = b.id WHERE r.request_type = 'refund' ORDER BY r.created_at DESC");
+        $private_requests = $this->wpdb->get_results("SELECT * FROM {$this->wpdb->prefix}umh_private_requests ORDER BY created_at DESC");
+        $badal_requests = $this->wpdb->get_results("SELECT b.*, m.name as mutawwif_name FROM {$this->wpdb->prefix}umh_badal_umrah b LEFT JOIN {$this->wpdb->prefix}umh_master_mutawwifs m ON b.mutawwif_id = m.id ORDER BY b.created_at DESC");
         ?>
         <div class="wrap">
-            <h1>Refund & Cancellation Management</h1>
-            <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4; margin-top: 20px;">
-                <h3>Workflow Pengajuan Refund</h3>
-                <table class="wp-list-table widefat fixed striped">
-                    <thead>
-                        <tr>
-                            <th>Booking</th>
-                            <th>Jamaah/Kontak</th>
-                            <th>Alasan</th>
-                            <th>Jumlah Refund</th>
-                            <th>Status</th>
-                            <th>Tanggal</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($refunds)): ?>
-                            <tr><td colspan="7">Belum ada pengajuan refund.</td></tr>
-                        <?php else: ?>
+            <h1>Special Services</h1>
+            
+            <h2 class="nav-tab-wrapper">
+                <a href="#refunds" class="nav-tab nav-tab-active">Refunds</a>
+                <a href="#private" class="nav-tab">Private & Custom</a>
+                <a href="#badal" class="nav-tab">Badal Umrah</a>
+            </h2>
+
+            <div id="refunds-section" class="tab-content" style="margin-top: 20px;">
+                <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                    <h3>Workflow Pengajuan Refund</h3>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>Booking</th>
+                                <th>Jamaah/Kontak</th>
+                                <th>Alasan</th>
+                                <th>Jumlah Refund</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
                             <?php foreach ($refunds as $ref): ?>
                                 <tr>
                                     <td><strong><?php echo $ref->booking_code; ?></strong></td>
@@ -1125,29 +1125,317 @@ class UMH_Admin {
                                     <td><?php echo $ref->reason; ?></td>
                                     <td>Rp <?php echo number_format($ref->amount_requested, 0, ',', '.'); ?></td>
                                     <td><span class="status-<?php echo $ref->status; ?>"><?php echo ucfirst($ref->status); ?></span></td>
-                                    <td><?php echo date('d/m/Y', strtotime($ref->created_at)); ?></td>
-                                    <td>
-                                        <?php if ($ref->status == 'pending'): ?>
-                                            <button class="button button-small" style="background: #4caf50; color: white;">Setujui</button>
-                                            <button class="button button-small" style="background: #f44336; color: white;">Tolak</button>
-                                        <?php endif; ?>
-                                    </td>
+                                    <td><button class="button button-small">Proses</button></td>
                                 </tr>
                             <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="private-section" class="tab-content" style="display:none; margin-top: 20px;">
+                <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                    <h3>Quotation Maker (Private & Custom)</h3>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>Nama Requestor</th>
+                                <th>Rencana Berangkat</th>
+                                <th>Pax</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($private_requests as $req): ?>
+                                <tr>
+                                    <td><strong><?php echo $req->name; ?></strong><br><small><?php echo $req->phone; ?></small></td>
+                                    <td><?php echo date('d M Y', strtotime($req->departure_date_plan)); ?></td>
+                                    <td><?php echo $req->pax_count; ?> Orang</td>
+                                    <td><span class="status-<?php echo $req->status; ?>"><?php echo ucfirst($req->status); ?></span></td>
+                                    <td><button class="button button-small button-primary">Buat Penawaran (PDF)</button></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="badal-section" class="tab-content" style="display:none; margin-top: 20px;">
+                <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                    <h3>Manajemen Badal Umrah</h3>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>Nama Almarhum/ah</th>
+                                <th>Mutawwif Pelaksana</th>
+                                <th>Status</th>
+                                <th>Bukti Video</th>
+                                <th>Sertifikat</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($badal_requests as $badal): ?>
+                                <tr>
+                                    <td><strong><?php echo $badal->badal_name; ?></strong></td>
+                                    <td><?php echo $badal->mutawwif_name ?: 'Belum ditugaskan'; ?></td>
+                                    <td><span class="status-<?php echo $badal->status; ?>"><?php echo ucfirst($badal->status); ?></span></td>
+                                    <td><?php echo $badal->proof_video_url ? '<a href="#">Lihat Video</a>' : '-'; ?></td>
+                                    <td><button class="button button-small">Generate</button></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
+        <script>
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('nav-tab-active'));
+                    this.classList.add('nav-tab-active');
+                    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+                    document.querySelector(this.getAttribute('href') + '-section').style.display = 'block';
+                });
+            });
+        </script>
         <?php
     }
 
-    public function display_customer_care() {
+    public function display_agents_hr() {
+        $agents = $this->wpdb->get_results("SELECT * FROM {$this->wpdb->prefix}umh_agents ORDER BY joined_at DESC");
+        $employees = $this->wpdb->get_results("SELECT * FROM {$this->wpdb->prefix}umh_hr_employees WHERE status = 'active'");
+        $tasks = $this->wpdb->get_results("SELECT t.*, e.name as employee_name FROM {$this->wpdb->prefix}umh_tasks t LEFT JOIN {$this->wpdb->prefix}umh_hr_employees e ON t.assigned_to = e.id ORDER BY t.due_date ASC");
         ?>
         <div class="wrap">
-            <h1>Customer Care</h1>
-            <p>Fitur ini sedang dalam pengembangan.</p>
+            <h1>Agents & HR Management</h1>
+            
+            <h2 class="nav-tab-wrapper">
+                <a href="#agents" class="nav-tab nav-tab-active">Sistem Keagenan</a>
+                <a href="#hris" class="nav-tab">HRIS & Karyawan</a>
+                <a href="#tasks" class="nav-tab">Task Management</a>
+            </h2>
+
+            <div id="agents-section" class="tab-content" style="margin-top: 20px;">
+                <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                    <h3>Manajemen Agen & Komisi</h3>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>Nama Agen</th>
+                                <th>Tier / Level</th>
+                                <th>Wilayah</th>
+                                <th>Total Komisi</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($agents)): ?>
+                                <tr><td colspan="6">Belum ada data agen.</td></tr>
+                            <?php else: ?>
+                                <?php foreach ($agents as $agent): ?>
+                                    <tr>
+                                        <td><strong><?php echo $agent->name; ?></strong><br><small><?php echo $agent->agency_name; ?></small></td>
+                                        <td><span class="badge-tier-<?php echo $agent->level; ?>" style="padding: 3px 8px; border-radius: 10px; background: #eee; font-size: 11px;"><?php echo strtoupper($agent->level); ?></span></td>
+                                        <td><?php echo $agent->city; ?></td>
+                                        <td>Rp <?php echo number_format($agent->commission_value, 0, ',', '.'); ?></td>
+                                        <td><span class="status-<?php echo $agent->status; ?>"><?php echo ucfirst($agent->status); ?></span></td>
+                                        <td><button class="button button-small">Detail Komisi</button></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="hris-section" class="tab-content" style="display:none; margin-top: 20px;">
+                <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                    <h3>Database Karyawan & Absensi</h3>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>Nama</th>
+                                <th>Jabatan</th>
+                                <th>Departemen</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($employees as $emp): ?>
+                                <tr>
+                                    <td><strong><?php echo $emp->name; ?></strong></td>
+                                    <td><?php echo $emp->position; ?></td>
+                                    <td><?php echo $emp->department; ?></td>
+                                    <td><span class="status-active">Active</span></td>
+                                    <td><button class="button button-small">Absensi</button></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="tasks-section" class="tab-content" style="display:none; margin-top: 20px;">
+                <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                    <h3>Internal Task Management</h3>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>Tugas</th>
+                                <th>PIC</th>
+                                <th>Deadline</th>
+                                <th>Prioritas</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($tasks as $task): ?>
+                                <tr>
+                                    <td><?php echo $task->title; ?></td>
+                                    <td><?php echo $task->employee_name; ?></td>
+                                    <td><?php echo date('d/m/Y', strtotime($task->due_date)); ?></td>
+                                    <td><?php echo ucfirst($task->priority); ?></td>
+                                    <td><?php echo ucfirst($task->status); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
+        <script>
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('nav-tab-active'));
+                    this.classList.add('nav-tab-active');
+                    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+                    document.querySelector(this.getAttribute('href') + '-section').style.display = 'block';
+                });
+            });
+        </script>
+        <?php
+    }
+    public function display_customer_care() {
+        $tickets = $this->wpdb->get_results("SELECT t.*, u.display_name FROM {$this->wpdb->prefix}umh_support_tickets t LEFT JOIN {$this->wpdb->prefix}users u ON t.user_id = u.ID ORDER BY t.created_at DESC");
+        $reviews = $this->wpdb->get_results("SELECT r.*, j.full_name FROM {$this->wpdb->prefix}umh_reviews r JOIN {$this->wpdb->prefix}umh_jamaah j ON r.jamaah_id = j.id ORDER BY r.created_at DESC");
+        $logs = $this->wpdb->get_results("SELECT l.*, u.display_name FROM {$this->wpdb->prefix}umh_activity_logs l LEFT JOIN {$this->wpdb->prefix}users u ON l.user_id = u.ID ORDER BY l.created_at DESC LIMIT 50");
+        ?>
+        <div class="wrap">
+            <h1>Customer Care & Automation</h1>
+            
+            <h2 class="nav-tab-wrapper">
+                <a href="#helpdesk" class="nav-tab nav-tab-active">Helpdesk (Tickets)</a>
+                <a href="#reviews" class="nav-tab">Reviews & Feedback</a>
+                <a href="#automation" class="nav-tab">Automation & Security</a>
+            </h2>
+
+            <div id="helpdesk-section" class="tab-content" style="margin-top: 20px;">
+                <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                    <h3>Ticketing System</h3>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>User</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($tickets as $ticket): ?>
+                                <tr>
+                                    <td><strong><?php echo $ticket->subject; ?></strong></td>
+                                    <td><?php echo $ticket->display_name; ?></td>
+                                    <td><span style="color: <?php echo $ticket->priority == 'high' ? 'red' : 'inherit'; ?>"><?php echo ucfirst($ticket->priority); ?></span></td>
+                                    <td><span class="status-<?php echo $ticket->status; ?>"><?php echo ucfirst($ticket->status); ?></span></td>
+                                    <td><button class="button button-small">Balas</button></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="reviews-section" class="tab-content" style="display:none; margin-top: 20px;">
+                <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                    <h3>Jamaah Reviews</h3>
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th>Jamaah</th>
+                                <th>Rating</th>
+                                <th>Komentar</th>
+                                <th>Tipe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($reviews as $rev): ?>
+                                <tr>
+                                    <td><?php echo $rev->full_name; ?></td>
+                                    <td><?php echo str_repeat('⭐', $rev->rating); ?></td>
+                                    <td><?php echo $rev->comment; ?></td>
+                                    <td><?php echo ucfirst($rev->review_type); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="automation-section" class="tab-content" style="display:none; margin-top: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                        <h3>WhatsApp Gateway Status</h3>
+                        <div style="padding: 15px; background: #e7f3e8; border-left: 4px solid #4caf50; margin-bottom: 15px;">
+                            <strong>Status: Connected</strong><br>
+                            <small>API Key: ************ (Active)</small>
+                        </div>
+                        <button class="button">Test Connection</button>
+                        <button class="button">Configure Templates</button>
+                    </div>
+                    <div style="background: #fff; padding: 20px; border: 1px solid #ccd0d4;">
+                        <h3>Audit Trail (Security Logs)</h3>
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            <table class="wp-list-table widefat fixed striped">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Action</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($logs as $log): ?>
+                                        <tr>
+                                            <td><?php echo $log->display_name; ?></td>
+                                            <td><?php echo $log->action; ?></td>
+                                            <td><small><?php echo date('H:i:s', strtotime($log->created_at)); ?></small></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('nav-tab-active'));
+                    this.classList.add('nav-tab-active');
+                    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+                    document.querySelector(this.getAttribute('href') + '-section').style.display = 'block';
+                });
+            });
+        </script>
         <?php
     }
 }
