@@ -1,4 +1,7 @@
 <?php
+// Folder: src/Config/
+// File: DatabaseSchema.php
+
 namespace UmhMgmt\Config;
 
 class DatabaseSchema {
@@ -154,15 +157,15 @@ class DatabaseSchema {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            // UPDATE: Tabel Hotels diperlengkap
+            // TABEL HOTELS (UPDATED: FOTO & MAPS)
             "CREATE TABLE {$wpdb->prefix}umh_hotels (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 location VARCHAR(255),
                 rating INT,
-                description TEXT, -- Baru: Deskripsi Hotel
-                image_url TEXT,   -- Baru: URL Foto Utama
-                map_embed_code TEXT, -- Baru: Kode Iframe Google Maps
+                description TEXT,
+                image_url TEXT,
+                map_embed_code TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
