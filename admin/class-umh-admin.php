@@ -851,3 +851,4 @@ class UMH_Admin {
         </div>
         <?php
     }
+}
