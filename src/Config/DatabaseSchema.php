@@ -154,11 +154,15 @@ class DatabaseSchema {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
+            // UPDATE: Tabel Hotels diperlengkap
             "CREATE TABLE {$wpdb->prefix}umh_hotels (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
                 location VARCHAR(255),
                 rating INT,
+                description TEXT, -- Baru: Deskripsi Hotel
+                image_url TEXT,   -- Baru: URL Foto Utama
+                map_embed_code TEXT, -- Baru: Kode Iframe Google Maps
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
