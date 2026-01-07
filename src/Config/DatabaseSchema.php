@@ -39,6 +39,68 @@ class DatabaseSchema {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
+            // [NEW] Master Data Muthawif (Pembimbing Ibadah)
+            "CREATE TABLE {$wpdb->prefix}umh_muthawifs (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                phone_saudi VARCHAR(20),
+                phone_indo VARCHAR(20),
+                certification VARCHAR(100),
+                rating DECIMAL(3,2) DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            // [NEW] Master Data Transportasi Bus (Bus Provider)
+            "CREATE TABLE {$wpdb->prefix}umh_bus_providers (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                company_name VARCHAR(255) NOT NULL,
+                contact_person VARCHAR(100),
+                phone VARCHAR(20),
+                bus_type VARCHAR(50), -- VIP, Executive, Standard
+                seat_capacity INT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            // [NEW] Master Data Bandara (Airports)
+            "CREATE TABLE {$wpdb->prefix}umh_airports (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                iata_code VARCHAR(5) NOT NULL, -- CGK, JED, MED
+                airport_name VARCHAR(255),
+                city VARCHAR(100),
+                terminal VARCHAR(50),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            // [NEW] Master Data Perlengkapan (Equipment Kits - Catalog)
+            "CREATE TABLE {$wpdb->prefix}umh_equipment_catalog (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                item_name VARCHAR(255) NOT NULL,
+                sku VARCHAR(50) UNIQUE,
+                cost_price DECIMAL(15,2) DEFAULT 0, -- HPP
+                description TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            // [NEW] Master Data Rekening Bank (Company Accounts)
+            "CREATE TABLE {$wpdb->prefix}umh_bank_accounts (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                bank_name VARCHAR(100) NOT NULL,
+                account_number VARCHAR(50) NOT NULL,
+                account_holder VARCHAR(255) NOT NULL,
+                swift_code VARCHAR(20),
+                is_active TINYINT(1) DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            // [NEW] Master Data Muassasah / Visa Provider
+            "CREATE TABLE {$wpdb->prefix}umh_visa_providers (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                provider_name VARCHAR(255) NOT NULL,
+                contact_info TEXT,
+                base_visa_cost DECIMAL(15,2) DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
             // --- 2. PRODUCT FACTORY (PACKAGES) ---
 
             "CREATE TABLE {$wpdb->prefix}umh_packages (
@@ -90,6 +152,8 @@ class DatabaseSchema {
                 total_seats INT DEFAULT 45,
                 available_seats INT DEFAULT 0,
                 status VARCHAR(50) DEFAULT 'open',
+                muthawif_id BIGINT, -- Link ke Muthawif
+                bus_provider_id BIGINT, -- Link ke Bus
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (package_id) REFERENCES {$wpdb->prefix}umh_packages(id) ON DELETE SET NULL
             ) $charset_collate;",
@@ -99,6 +163,7 @@ class DatabaseSchema {
                 item_code VARCHAR(50) NOT NULL,
                 item_name VARCHAR(255) NOT NULL,
                 stock_qty INT DEFAULT 0,
+                catalog_id BIGINT, -- Link ke Master Catalog
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
@@ -123,6 +188,7 @@ class DatabaseSchema {
                 name VARCHAR(255) NOT NULL,
                 passport_number VARCHAR(50),
                 passport_expiry DATE,
+                is_tour_leader TINYINT(1) DEFAULT 0, -- Flag Tour Leader
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
             ) $charset_collate;",
@@ -201,28 +267,26 @@ class DatabaseSchema {
                 FOREIGN KEY (employee_id) REFERENCES {$wpdb->prefix}umh_employees(id) ON DELETE CASCADE
             ) $charset_collate;",
 
-            // --- 8. ENTERPRISE SECURITY & AUDIT (NEW FEATURES) ---
+            // --- 8. ENTERPRISE SECURITY & AUDIT ---
 
-            // Tabel Audit Log: Merekam siapa melakukan apa
             "CREATE TABLE {$wpdb->prefix}umh_audit_logs (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 user_id BIGINT UNSIGNED NOT NULL,
-                action VARCHAR(50) NOT NULL, -- e.g., 'create_booking', 'update_package'
-                object_type VARCHAR(50) NOT NULL, -- e.g., 'booking', 'package'
+                action VARCHAR(50) NOT NULL,
+                object_type VARCHAR(50) NOT NULL,
                 object_id BIGINT NOT NULL,
-                old_value LONGTEXT NULL, -- JSON data lama
-                new_value LONGTEXT NULL, -- JSON data baru
+                old_value LONGTEXT NULL,
+                new_value LONGTEXT NULL,
                 ip_address VARCHAR(45),
                 user_agent TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            // Tabel API Keys: Untuk akses Mobile Apps di masa depan
             "CREATE TABLE {$wpdb->prefix}umh_api_keys (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 user_id BIGINT UNSIGNED NOT NULL,
                 api_key VARCHAR(64) NOT NULL UNIQUE,
-                permissions TEXT, -- JSON capabilities
+                permissions TEXT,
                 last_used_at DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;"
