@@ -1,4 +1,7 @@
 <?php
+// File: RoleManager.php
+// Location: src/Config/RoleManager.php
+
 namespace UmhMgmt\Config;
 
 class RoleManager {
@@ -7,69 +10,48 @@ class RoleManager {
     }
 
     public static function register_roles() {
-        $roles = [
-            'umh_owner' => [
-                'display_name' => 'Owner',
-                'capabilities' => [
-                    'read' => true,
-                    'manage_options' => true,
-                    'umh_view_audit_log' => true,
-                    'umh_manage_all_branches' => true,
-                ]
-            ],
-            'umh_manager' => [
-                'display_name' => 'General Manager',
-                'capabilities' => [
-                    'read' => true,
-                    'umh_manage_packages' => true,
-                    'umh_view_finance_summary' => true,
-                    'umh_manage_staff' => true,
-                ]
-            ],
-            'umh_finance' => [
-                'display_name' => 'Finance',
-                'capabilities' => [
-                    'read' => true,
-                    'umh_manage_invoices' => true,
-                    'umh_view_detailed_finance' => true,
-                    'umh_approve_payments' => true,
-                ]
-            ],
-            'umh_operational' => [
-                'display_name' => 'Operational',
-                'capabilities' => [
-                    'read' => true,
-                    'umh_manage_manifest' => true,
-                    'umh_manage_departures' => true,
-                    'umh_handle_handling' => true,
-                ]
-            ],
-            'umh_agent' => [
-                'display_name' => 'Sales/Agent',
-                'capabilities' => [
-                    'read' => true,
-                    'umh_create_booking' => true,
-                    'umh_view_own_commission' => true,
-                ]
-            ],
-            'umh_it' => [
-                'display_name' => 'IT Support',
-                'capabilities' => [
-                    'read' => true,
-                    'umh_view_system_status' => true,
-                    'umh_manage_settings' => true,
-                    'umh_debug_logs' => true,
-                ]
-            ],
-        ];
+        // 1. ROLE JEMAAH (Customer)
+        add_role('umh_jemaah', 'Jamaah Umroh', [
+            'read' => true,
+            'umh_view_dashboard_jemaah' => true, // Hanya bisa lihat dashboard jemaah
+            'umh_upload_documents' => true,
+        ]);
 
-        foreach ($roles as $role_slug => $role_data) {
-            add_role($role_slug, $role_data['display_name'], $role_data['capabilities']);
-        }
+        // 2. ROLE STAFF (Operasional Harian)
+        add_role('umh_staff', 'Staff Operasional', [
+            'read' => true,
+            'umh_view_dashboard' => true,
+            'umh_manage_bookings' => true, // Bisa edit booking tapi terbatas
+            'upload_files' => true,
+        ]);
+
+        // 3. ROLE AGEN (Mitra)
+        add_role('umh_agent', 'Agen Travel', [
+            'read' => true,
+            'umh_view_dashboard_agent' => true,
+            'umh_create_booking' => true,
+            'umh_view_own_commission' => true,
+        ]);
+
+        // 4. ROLE CABANG (Branch Manager)
+        add_role('umh_branch_manager', 'Kepala Cabang', [
+            'read' => true,
+            'umh_view_dashboard' => true,
+            'umh_manage_branch_bookings' => true, // Hanya booking cabang dia (via BranchScopeTrait)
+            'umh_view_finance_summary' => true,
+        ]);
+
+        // 5. ROLE OWNER & MANAGER (Super User)
+        // (Biasanya pakai Administrator WP, tapi kita buat spesifik jika perlu)
+        add_role('umh_manager', 'General Manager', [
+            'read' => true,
+            'manage_options' => true, // Akses penuh
+            'umh_manage_all_branches' => true,
+        ]);
     }
 
     public static function remove_roles() {
-        $roles = ['umh_owner', 'umh_manager', 'umh_finance', 'umh_operational', 'umh_agent', 'umh_it'];
+        $roles = ['umh_jemaah', 'umh_staff', 'umh_agent', 'umh_branch_manager', 'umh_manager'];
         foreach ($roles as $role) {
             remove_role($role);
         }

@@ -6,7 +6,7 @@
  * Plugin Name: Umroh Management System (Enterprise Edition)
  * Plugin URI: https://example.com/umroh-management
  * Description: Sistem manajemen travel umroh dengan arsitektur PSR-4 dan keamanan audit yang ditingkatkan.
- * Version: 2.2.1
+ * Version: 2.3.0
  * Author: bonangpanjinur
  * Text Domain: umroh-management
  */
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 
 define('UMH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('UMH_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('UMH_VERSION', '2.2.1');
+define('UMH_VERSION', '2.3.0');
 
 // Simple PSR-4 Autoloader
 spl_autoload_register(function ($class) {
@@ -48,6 +48,9 @@ function activate_umh_management() {
     foreach ($schemas as $sql) {
         dbDelta($sql);
     }
+    
+    // Init Roles saat aktivasi
+    \UmhMgmt\Config\RoleManager::init();
 }
 register_activation_hook(__FILE__, 'activate_umh_management');
 
@@ -69,7 +72,7 @@ class UMH_Management {
             new \UmhMgmt\Controllers\Admin\DashboardController();
             new \UmhMgmt\Controllers\Admin\MasterDataController();
             new \UmhMgmt\Controllers\Admin\PackageController();
-            new \UmhMgmt\Controllers\Admin\DepartureController(); // Fixed Departures
+            new \UmhMgmt\Controllers\Admin\DepartureController(); 
             new \UmhMgmt\Controllers\Admin\BookingController();
             new \UmhMgmt\Controllers\Admin\FinanceController();
             new \UmhMgmt\Controllers\Admin\CRMController();
@@ -84,8 +87,9 @@ class UMH_Management {
         
         // Frontend Controllers
         new \UmhMgmt\Controllers\Frontend\BookingFormController();
-        // [NEW] Catalog Controller
         new \UmhMgmt\Controllers\Frontend\PackageCatalogController();
+        // [NEW] Dashboard Area untuk Jemaah
+        new \UmhMgmt\Controllers\Frontend\JemaahDashboardController();
     }
 }
 
