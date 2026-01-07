@@ -6,7 +6,7 @@
  * Plugin Name: Umroh Management System (Enterprise Edition)
  * Plugin URI: https://example.com/umroh-management
  * Description: Sistem manajemen travel umroh dengan arsitektur PSR-4 dan keamanan audit yang ditingkatkan.
- * Version: 2.3.1
+ * Version: 2.3.2
  * Author: bonangpanjinur
  * Text Domain: umroh-management
  */
@@ -17,7 +17,7 @@ if (!defined('ABSPATH')) {
 
 define('UMH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('UMH_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('UMH_VERSION', '2.3.1');
+define('UMH_VERSION', '2.3.2');
 
 // PSR-4 Autoloader
 spl_autoload_register(function ($class) {
@@ -30,7 +30,7 @@ spl_autoload_register(function ($class) {
     if (file_exists($file)) require $file;
 });
 
-// Activation Hook (Create Tables)
+// Activation Hook
 register_activation_hook(__FILE__, function() {
     global $wpdb;
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
@@ -48,7 +48,6 @@ class UMH_Management {
 
     private function init_controllers() {
         if (is_admin()) {
-            // Admin Controllers...
             new \UmhMgmt\Controllers\Admin\DashboardController();
             new \UmhMgmt\Controllers\Admin\MasterDataController();
             new \UmhMgmt\Controllers\Admin\PackageController();
@@ -69,8 +68,10 @@ class UMH_Management {
         new \UmhMgmt\Controllers\Frontend\BookingFormController();
         new \UmhMgmt\Controllers\Frontend\PackageCatalogController();
         new \UmhMgmt\Controllers\Frontend\JemaahDashboardController();
-        // [NEW] Document Controller
         new \UmhMgmt\Controllers\Frontend\DocumentController();
+        
+        // [NEW] Agent Dashboard
+        new \UmhMgmt\Controllers\Frontend\AgentDashboardController();
     }
 }
 
