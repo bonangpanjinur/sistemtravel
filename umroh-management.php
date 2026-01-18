@@ -1,15 +1,12 @@
 <?php
-// File: umroh-management.php
-// Location: umroh-management.php
-
-/**
- * Plugin Name: Umroh Management System (Enterprise Edition)
- * Plugin URI: https://example.com/umroh-management
- * Description: Sistem manajemen travel umroh dengan arsitektur PSR-4 dan keamanan audit yang ditingkatkan.
- * Version: 2.4.3
- * Author: bonangpanjinur
- * Text Domain: umroh-management
- */
+/*
+Plugin Name: Umroh Management System (Enterprise Edition)
+Plugin URI: https://example.com/umroh-management
+Description: Sistem manajemen travel umroh dengan arsitektur PSR-4 dan keamanan audit yang ditingkatkan.
+Version: 2.4.3
+Author: bonangpanjinur
+Text Domain: umroh-management
+*/
 
 if (!defined('ABSPATH')) {
     exit;
@@ -42,11 +39,16 @@ register_activation_hook(__FILE__, function() {
 class UMH_Management {
     public function __construct() {
         \UmhMgmt\Config\RoleManager::init();
+        
+        // Load Core Services
         new \UmhMgmt\Services\NotificationService();
+        
+        // Init Controllers
         $this->init_controllers();
     }
 
     private function init_controllers() {
+        // --- Admin Controllers ---
         if (is_admin()) {
             new \UmhMgmt\Controllers\Admin\DashboardController();
             new \UmhMgmt\Controllers\Admin\MasterDataController();
@@ -69,9 +71,12 @@ class UMH_Management {
             new \UmhMgmt\Controllers\Admin\IntegrationController();
             new \UmhMgmt\Controllers\Admin\ReportController();
             new \UmhMgmt\Controllers\Admin\InventoryScannerController();
+            
+            // [NEW] Settings Controller (Pusat Pengaturan)
+            new \UmhMgmt\Controllers\Admin\SettingsController();
         } 
         
-        // Frontend Controllers
+        // --- Frontend Controllers ---
         new \UmhMgmt\Controllers\Frontend\BookingFormController();
         new \UmhMgmt\Controllers\Frontend\PackageCatalogController();
         new \UmhMgmt\Controllers\Frontend\JemaahDashboardController();
@@ -79,9 +84,11 @@ class UMH_Management {
         new \UmhMgmt\Controllers\Frontend\AgentDashboardController();
         new \UmhMgmt\Controllers\Frontend\PaymentController();
         new \UmhMgmt\Controllers\Frontend\DigitalIdController();
-        
-        // [NEW] Certificate
         new \UmhMgmt\Controllers\Frontend\CertificateController();
+        
+        // [NEW] Payment Gateway Callback Handler (Webhook)
+        // Harus diload di frontend/global agar bisa menerima hit dari Midtrans
+        new \UmhMgmt\Controllers\Frontend\PaymentCallbackController();
     }
 }
 
