@@ -1,6 +1,5 @@
 <?php 
 // File: templates/frontend/booking-form.php
-// UI untuk Frontend Booking
 ?>
 <div class="umh-booking-container">
     <div class="umh-booking-header">
@@ -12,16 +11,36 @@
         </div>
     </div>
 
-    <?php if (!$user_logged_in): ?>
-        <div class="alert alert-warning">
-            Silakan <a href="<?php echo wp_login_url(get_permalink()); ?>">Login</a> terlebih dahulu untuk melanjutkan pemesanan.
-        </div>
-    <?php else: ?>
-
     <form id="umhBookingForm" action="<?php echo admin_url('admin-post.php'); ?>" method="POST">
         <input type="hidden" name="action" value="umh_submit_booking">
         <input type="hidden" name="departure_id" value="<?php echo esc_attr($departure_id); ?>">
         <?php wp_nonce_field('submit_booking', 'umh_booking_nonce'); ?>
+
+        <!-- [NEW] SECTION: Data Kontak (Auto Register) -->
+        <?php if (!$user_logged_in): ?>
+        <div class="form-section" style="background:#fff3cd; border:1px solid #ffeeba;">
+            <h4>👤 Data Kontak (Pendaftar)</h4>
+            <p style="font-size:0.9rem; color:#666;">Anda belum login. Akun akan dibuat otomatis setelah pemesanan.</p>
+            <div class="row">
+                <div class="col-md-4">
+                    <label>Nama Lengkap</label>
+                    <input type="text" name="contact_name" class="form-control" required placeholder="Contoh: Budi Santoso">
+                </div>
+                <div class="col-md-4">
+                    <label>Alamat Email (Aktif)</label>
+                    <input type="email" name="contact_email" class="form-control" required placeholder="email@contoh.com">
+                </div>
+                <div class="col-md-4">
+                    <label>No. WhatsApp</label>
+                    <input type="text" name="contact_phone" class="form-control" required placeholder="08123456789">
+                </div>
+            </div>
+        </div>
+        <?php else: ?>
+            <div class="alert alert-info">
+                Anda login sebagai: <strong><?php echo esc_html($current_user->display_name); ?></strong>
+            </div>
+        <?php endif; ?>
 
         <!-- 1. Pilih Tipe Kamar -->
         <div class="form-section">
@@ -47,7 +66,7 @@
                 <button type="button" id="addPaxBtn" class="btn btn-sm btn-outline-primary">+ Tambah Jamaah</button>
             </div>
             <div id="paxContainer">
-                <!-- Baris Jamaah 1 (Default) -->
+                <!-- Baris Jamaah 1 -->
                 <div class="pax-row" data-index="0">
                     <div class="pax-header">Jamaah 1</div>
                     <div class="row">
@@ -77,7 +96,7 @@
             </div>
         </div>
 
-        <!-- 3. Layanan Tambahan (Add-ons) -->
+        <!-- 3. Layanan Tambahan -->
         <?php if (!empty($addons)): ?>
         <div class="form-section">
             <h4>3. Layanan Tambahan (Opsional)</h4>
@@ -100,21 +119,18 @@
             <label>Punya Kode Promo?</label>
             <div class="input-group" style="max-width: 300px;">
                 <input type="text" name="coupon_code" id="couponCode" class="form-control" placeholder="Masukkan Kode">
-                <!-- Logic validasi kupon sederhana (server side handled) -->
             </div>
-            <small class="text-muted">Diskon akan dihitung di halaman tagihan.</small>
         </div>
 
-        <!-- Sticky Footer Total -->
+        <!-- Footer -->
         <div class="booking-footer">
             <div class="total-display">
                 <small>Estimasi Total</small>
                 <div id="grandTotalDisplay">Rp 0</div>
             </div>
-            <button type="submit" class="btn btn-primary btn-lg">Lanjut Pembayaran</button>
+            <button type="submit" class="btn btn-primary btn-lg">Booking Sekarang</button>
         </div>
     </form>
-    <?php endif; ?>
 </div>
 
 <!-- Data Passing ke JS -->
