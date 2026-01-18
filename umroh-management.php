@@ -1,92 +1,111 @@
 <?php
-// File: src/Controllers/Frontend/PaymentCallbackController.php
+/**
+ * Plugin Name: Umroh Management System (Enterprise Edition)
+ * Plugin URI: https://example.com/umroh-management
+ * Description: Sistem manajemen travel umroh dengan arsitektur PSR-4 dan keamanan audit yang ditingkatkan.
+ * Version: 2.4.3
+ * Author: bonangpanjinur
+ * Text Domain: umroh-management
+ */
 
-namespace UmhMgmt\Controllers\Frontend;
+if (!defined('ABSPATH')) {
+    exit;
+}
 
-use UmhMgmt\Services\NotificationService;
-use UmhMgmt\Repositories\BookingRepository;
+define('UMH_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('UMH_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('UMH_VERSION', '2.4.3');
 
-class PaymentCallbackController {
-    
+// PSR-4 Autoloader
+spl_autoload_register(function ($class) {
+    $prefix = 'UmhMgmt\\';
+    $base_dir = UMH_PLUGIN_DIR . 'src/';
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) return;
+    $relative_class = substr($class, $len);
+    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
+    if (file_exists($file)) require $file;
+});
+
+// Activation Hook
+register_activation_hook(__FILE__, function() {
+    global $wpdb;
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+    // Pastikan class DatabaseSchema ada sebelum dipanggil
+    if (class_exists('\UmhMgmt\Config\DatabaseSchema')) {
+        $schemas = \UmhMgmt\Config\DatabaseSchema::get_schema();
+        foreach ($schemas as $sql) dbDelta($sql);
+    }
+    if (class_exists('\UmhMgmt\Config\RoleManager')) {
+        \UmhMgmt\Config\RoleManager::init();
+    }
+});
+
+class UMH_Management {
     public function __construct() {
-        // Hook khusus untuk menangani Notification Webhook dari Midtrans
-        // URL Webhook di Midtrans dashboard: https://websiteanda.com/wp-admin/admin-post.php?action=umh_midtrans_callback
-        add_action('admin_post_umh_midtrans_callback', [$this, 'handleWebhook']);
-        add_action('admin_post_nopriv_umh_midtrans_callback', [$this, 'handleWebhook']);
+        if (class_exists('\UmhMgmt\Config\RoleManager')) {
+            \UmhMgmt\Config\RoleManager::init();
+        }
+        
+        // Load Core Services
+        if (class_exists('\UmhMgmt\Services\NotificationService')) {
+            new \UmhMgmt\Services\NotificationService();
+        }
+        
+        // Init Controllers
+        $this->init_controllers();
     }
 
-    public function handleWebhook() {
-        // Ambil JSON Raw Body
-        $json = file_get_contents('php://input');
-        $notification = json_decode($json);
-
-        if (!$notification) {
-            http_response_code(400); // Bad Request
-            exit;
-        }
-
-        // Validasi Signature (Keamanan)
-        $serverKey = get_option('umh_midtrans_server_key', '');
-        if (empty($serverKey)) {
-             // Fallback atau log error jika key belum disetting
-             error_log('Midtrans Server Key is missing in settings.');
-             exit;
-        }
-
-        $validSignature = hash("sha512", $notification->order_id . $notification->status_code . $notification->gross_amount . $serverKey);
-
-        if ($notification->signature_key !== $validSignature) {
-            http_response_code(403); // Forbidden
-            exit;
-        }
-
-        $transactionStatus = $notification->transaction_status;
-        $orderIdParts = explode('-', $notification->order_id); 
-        $bookingId = isset($orderIdParts[1]) ? intval($orderIdParts[1]) : 0;
-
-        if (!$bookingId) exit;
-
-        global $wpdb;
-        $booking = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}umh_bookings WHERE id = %d", $bookingId));
-
-        if (!$booking) exit;
-
-        // Logic Update Status
-        $newStatus = '';
-        if ($transactionStatus == 'capture' || $transactionStatus == 'settlement') {
-            $newStatus = 'paid';
-        } elseif ($transactionStatus == 'pending') {
-            $newStatus = 'waiting_payment';
-        } elseif ($transactionStatus == 'deny' || $transactionStatus == 'expire' || $transactionStatus == 'cancel') {
-            $newStatus = 'cancelled';
-        }
-
-        if ($newStatus && $newStatus !== $booking->status) {
-            // Update Database
-            $wpdb->update(
-                "{$wpdb->prefix}umh_bookings",
-                ['status' => $newStatus, 'updated_at' => current_time('mysql')],
-                ['id' => $bookingId]
-            );
-
-            // Log Pembayaran
-            $wpdb->insert("{$wpdb->prefix}umh_payments", [
-                'booking_id' => $bookingId,
-                'amount' => $notification->gross_amount,
-                'payment_method' => 'midtrans_' . ($notification->payment_type ?? 'unknown'),
-                'status' => 'verified', // Karena dari gateway, auto verified
-                'proof_file' => $notification->transaction_id ?? '', // Simpan ref ID midtrans
-                'created_at' => current_time('mysql')
-            ]);
-
-            // Trigger Notification (Email & WA) via Hook
-            if ($newStatus == 'paid') {
-                do_action('umh_booking_paid', $bookingId);
+    private function init_controllers() {
+        // Helper function untuk init class dengan aman
+        $load = function($class) {
+            if (class_exists($class)) {
+                new $class();
             }
-        }
+        };
 
-        http_response_code(200); // OK
-        echo "OK";
-        exit;
+        // --- Admin Controllers ---
+        if (is_admin()) {
+            $load('\UmhMgmt\Controllers\Admin\DashboardController');
+            $load('\UmhMgmt\Controllers\Admin\MasterDataController');
+            $load('\UmhMgmt\Controllers\Admin\PackageController');
+            $load('\UmhMgmt\Controllers\Admin\DepartureController'); 
+            $load('\UmhMgmt\Controllers\Admin\BookingController');
+            $load('\UmhMgmt\Controllers\Admin\FinanceController');
+            $load('\UmhMgmt\Controllers\Admin\CRMController');
+            $load('\UmhMgmt\Controllers\Admin\SavingsPlanController');
+            $load('\UmhMgmt\Controllers\Admin\EmployeeController');
+            $load('\UmhMgmt\Controllers\Admin\BranchController');
+            $load('\UmhMgmt\Controllers\Admin\OperationalController');
+            $load('\UmhMgmt\Controllers\Admin\AgentsHRController');
+            $load('\UmhMgmt\Controllers\Admin\SpecialServicesController');
+            $load('\UmhMgmt\Controllers\Admin\CustomerCareController');
+            $load('\UmhMgmt\Controllers\Admin\AgentCommissionController');
+            $load('\UmhMgmt\Controllers\Admin\ManifestController');
+            $load('\UmhMgmt\Controllers\Admin\RoomingListController');
+            $load('\UmhMgmt\Controllers\Admin\VisaController');
+            $load('\UmhMgmt\Controllers\Admin\IntegrationController');
+            $load('\UmhMgmt\Controllers\Admin\ReportController');
+            $load('\UmhMgmt\Controllers\Admin\InventoryScannerController');
+            
+            // [NEW] Settings Controller (Pusat Pengaturan)
+            $load('\UmhMgmt\Controllers\Admin\SettingsController');
+        } 
+        
+        // --- Frontend Controllers ---
+        $load('\UmhMgmt\Controllers\Frontend\BookingFormController');
+        $load('\UmhMgmt\Controllers\Frontend\PackageCatalogController');
+        $load('\UmhMgmt\Controllers\Frontend\JemaahDashboardController');
+        $load('\UmhMgmt\Controllers\Frontend\DocumentController');
+        $load('\UmhMgmt\Controllers\Frontend\AgentDashboardController');
+        $load('\UmhMgmt\Controllers\Frontend\PaymentController');
+        $load('\UmhMgmt\Controllers\Frontend\DigitalIdController');
+        $load('\UmhMgmt\Controllers\Frontend\CertificateController');
+        
+        // [NEW] Payment Gateway Callback Handler (Webhook)
+        // Load dengan aman. Jika file belum ada, website tidak akan crash.
+        $load('\UmhMgmt\Controllers\Frontend\PaymentCallbackController');
     }
 }
+
+new UMH_Management();
