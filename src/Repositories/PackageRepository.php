@@ -12,6 +12,15 @@ class PackageRepository {
     }
 
     /**
+     * Mengambil semua paket (Fix Error: Call to undefined method ::all())
+     */
+    public function all() {
+        return $this->wpdb->get_results(
+            "SELECT * FROM {$this->wpdb->prefix}umh_packages WHERE deleted_at IS NULL ORDER BY created_at DESC"
+        );
+    }
+
+    /**
      * Mengambil detail paket beserta opsi harga
      */
     public function getPackageDetail($id) {
@@ -38,7 +47,7 @@ class PackageRepository {
     }
 
     /**
-     * [BARU] Mengambil map harga paket untuk kalkulasi booking
+     * Mengambil map harga paket untuk kalkulasi booking
      * Returns: ['quad' => 25jt, 'triple' => 27jt, 'double' => 30jt]
      */
     public function getPricing($packageId) {
@@ -53,7 +62,6 @@ class PackageRepository {
         }
 
         // Tambahkan default logic untuk Infant & Child No Bed jika tidak ada di database
-        // Biasanya Infant = 20% dari Quad, Child No Bed = 85% dari Quad
         if (isset($prices['quad'])) {
             if (!isset($prices['infant'])) {
                 $prices['infant'] = $prices['quad'] * 0.20; 
@@ -64,6 +72,31 @@ class PackageRepository {
         }
 
         return $prices;
+    }
+    
+    // Method create/save untuk menyimpan paket baru
+    public function create($data) {
+        $data['created_at'] = current_time('mysql');
+        $this->wpdb->insert("{$this->wpdb->prefix}umh_packages", $data);
+        return $this->wpdb->insert_id;
+    }
+    
+    // Method update paket
+    public function update($id, $data) {
+        return $this->wpdb->update(
+            "{$this->wpdb->prefix}umh_packages", 
+            $data, 
+            ['id' => $id]
+        );
+    }
+    
+    // Method delete (soft delete)
+    public function delete($id) {
+        return $this->wpdb->update(
+            "{$this->wpdb->prefix}umh_packages",
+            ['deleted_at' => current_time('mysql')],
+            ['id' => $id]
+        );
     }
 
     public function decreaseQuota($departureId, $qty) {
