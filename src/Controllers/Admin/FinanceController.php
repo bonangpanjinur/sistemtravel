@@ -1,114 +1,121 @@
 <?php
+// Folder: src/Controllers/Admin/
 // File: FinanceController.php
-// Location: src/Controllers/Admin/FinanceController.php
 
 namespace UmhMgmt\Controllers\Admin;
 
 use UmhMgmt\Utils\View;
+use UmhMgmt\Repositories\FinanceRepository;
+use UmhMgmt\Services\AccountingService;
+use UmhMgmt\Services\AgentService;
 
 class FinanceController {
+    private $financeRepo;
+    private $accountingService;
+    private $agentService;
+    private $wpdb;
 
     public function __construct() {
-        add_action('admin_menu', [$this, 'add_menu']);
-        add_action('admin_post_umh_verify_payment', [$this, 'handle_verify_payment']);
-        add_action('admin_post_umh_reject_payment', [$this, 'handle_reject_payment']);
-    }
-
-    public function add_menu() {
-        add_submenu_page(
-            'umh-dashboard',
-            'Keuangan & Pembayaran',
-            'Finance',
-            'manage_options',
-            'umh-finance',
-            [$this, 'render_page']
-        );
-    }
-
-    public function handle_verify_payment() {
-        check_admin_referer('umh_finance_action');
-        if (!current_user_can('manage_options')) wp_die('Unauthorized');
-
         global $wpdb;
-        $payment_id = absint($_POST['payment_id']);
-        $admin_id = get_current_user_id();
+        $this->wpdb = $wpdb;
+        $this->financeRepo = new FinanceRepository();
+        $this->accountingService = new AccountingService();
+        $this->agentService = new AgentService();
+    }
 
-        // 1. Update Status Pembayaran -> Verified
-        $wpdb->update(
-            $wpdb->prefix . 'umh_payments',
-            [
-                'status' => 'verified',
-                'verified_by' => $admin_id,
-                'verified_at' => current_time('mysql')
-            ],
-            ['id' => $payment_id]
-        );
-
-        // 2. Cek Total Pembayaran Booking Terkait
-        $payment = $wpdb->get_row($wpdb->prepare("SELECT booking_id FROM {$wpdb->prefix}umh_payments WHERE id = %d", $payment_id));
-        $booking_id = $payment->booking_id;
-
-        $booking = $wpdb->get_row($wpdb->prepare("SELECT total_price FROM {$wpdb->prefix}umh_bookings WHERE id = %d", $booking_id));
-        
-        $total_verified = $wpdb->get_var($wpdb->prepare(
-            "SELECT SUM(amount) FROM {$wpdb->prefix}umh_payments WHERE booking_id = %d AND status = 'verified'",
-            $booking_id
-        ));
-
-        // 3. Logic Pelunasan Otomatis
-        // Jika total verified >= total tagihan, set booking jadi PAID
-        if ($total_verified >= $booking->total_price) {
-            $wpdb->update(
-                $wpdb->prefix . 'umh_bookings',
-                ['status' => 'paid'],
-                ['id' => $booking_id]
-            );
+    public function index() {
+        if (!current_user_can('umh_manage_payments') && !current_user_can('administrator')) {
+            wp_die(__('Akses ditolak.', 'umh-mgmt'));
         }
 
-        wp_redirect(admin_url('admin.php?page=umh-finance&msg=verified'));
-        exit;
-    }
-
-    public function handle_reject_payment() {
-        check_admin_referer('umh_finance_action');
-        global $wpdb;
-        $payment_id = absint($_POST['payment_id']);
-
-        $wpdb->update(
-            $wpdb->prefix . 'umh_payments',
-            ['status' => 'rejected'],
-            ['id' => $payment_id]
-        );
-
-        wp_redirect(admin_url('admin.php?page=umh-finance&msg=rejected'));
-        exit;
-    }
-
-    public function render_page() {
-        global $wpdb;
-
-        // Ambil Pembayaran Pending (Butuh Verifikasi)
-        $pending_payments = $wpdb->get_results("
-            SELECT p.*, b.total_price as booking_total, u.display_name as jemaah_name
-            FROM {$wpdb->prefix}umh_payments p
-            JOIN {$wpdb->prefix}umh_bookings b ON p.booking_id = b.id
-            JOIN {$wpdb->users} u ON p.user_id = u.ID
-            WHERE p.status = 'pending_verification'
-            ORDER BY p.created_at ASC
-        ");
-
-        // Ambil History Terakhir (50)
-        $history = $wpdb->get_results("
-            SELECT p.*, u.display_name as jemaah_name 
-            FROM {$wpdb->prefix}umh_payments p
-            JOIN {$wpdb->users} u ON p.user_id = u.ID
-            WHERE p.status != 'pending_verification'
-            ORDER BY p.verified_at DESC LIMIT 50
-        ");
+        $payments = $this->financeRepo->getAllPayments();
+        
+        $total_verified = 0;
+        $total_pending = 0;
+        foreach ($payments as $p) {
+            if ($p->status == 'verified') $total_verified += $p->amount;
+            if ($p->status == 'pending_verification') $total_pending += $p->amount;
+        }
 
         View::render('admin/finance', [
-            'pending_payments' => $pending_payments,
-            'history' => $history
+            'payments' => $payments,
+            'summary' => [
+                'verified' => $total_verified,
+                'pending' => $total_pending
+            ]
         ]);
+    }
+
+    public function handleVerifyPayment() {
+        if (!isset($_POST['payment_id']) || !check_admin_referer('umh_verify_payment_nonce')) {
+            wp_die('Security check failed');
+        }
+
+        $paymentId = intval($_POST['payment_id']);
+        $action = sanitize_text_field($_POST['verification_action']); 
+        $adminId = get_current_user_id();
+
+        if ($action === 'verify') {
+            $this->processVerification($paymentId, $adminId);
+        } elseif ($action === 'reject') {
+            $this->financeRepo->updateStatus($paymentId, 'rejected', $adminId);
+        }
+
+        wp_redirect(admin_url('admin.php?page=umh-finance&status=updated'));
+        exit;
+    }
+
+    /**
+     * CORE LOGIC: Verifikasi + Accounting + Marketing
+     */
+    private function processVerification($paymentId, $adminId) {
+        // 1. Ambil Data Payment
+        $payment = $this->financeRepo->getPaymentById($paymentId);
+        if (!$payment || $payment->status === 'verified') return;
+
+        // 2. Update Status
+        $this->financeRepo->updateStatus($paymentId, 'verified', $adminId);
+
+        // 3. ACCOUNTING: Catat Jurnal
+        $debitAccount = '1002'; // Bank BCA
+        $creditAccount = '2001'; // Deposit Jemaah
+        $description = "Pembayaran Booking #{$payment->booking_id} via {$payment->payment_method}";
+        
+        $this->accountingService->recordTransaction(
+            "INV-" . $payment->booking_id . "-" . $paymentId,
+            $description,
+            $debitAccount, 
+            $creditAccount,
+            $payment->amount,
+            $adminId
+        );
+
+        // 4. MARKETING: Cek Komisi & Poin
+        // Logika: Trigger komisi jika pembayaran ini membuat status booking jadi "Lunas" (Paid)
+        // Atau sederhananya: Hitung sisa tagihan.
+        
+        $bookingId = $payment->booking_id;
+        $booking = $this->wpdb->get_row($this->wpdb->prepare("SELECT * FROM {$this->wpdb->prefix}umh_bookings WHERE id = %d", $bookingId));
+        
+        // Hitung total bayar
+        $totalPaid = $this->wpdb->get_var($this->wpdb->prepare(
+            "SELECT SUM(amount) FROM {$this->wpdb->prefix}umh_payments WHERE booking_id = %d AND status = 'verified'", 
+            $bookingId
+        ));
+
+        if ($booking && $booking->agent_id && $totalPaid >= $booking->total_price) {
+            // Jika Lunas, Berikan Komisi & Poin
+            
+            // Hitung base commission (Misal 5% dari harga paket)
+            // Idealnya ambil rule dari Master Data Paket, disini kita hardcode contoh
+            $commissionAmount = $booking->total_price * 0.05; 
+
+            // Distribute MLM Commission
+            $this->agentService->distributeCommission($bookingId, $booking->agent_id, $commissionAmount);
+            
+            // Add Points (Misal 1 poin per 1 juta)
+            $points = floor($booking->total_price / 1000000);
+            $this->agentService->addPoints($booking->agent_id, $points, $bookingId);
+        }
     }
 }

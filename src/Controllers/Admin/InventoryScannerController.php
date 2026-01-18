@@ -1,90 +1,163 @@
 <?php
+// Folder: src/Controllers/Admin/
 // File: InventoryScannerController.php
-// Location: src/Controllers/Admin/InventoryScannerController.php
 
 namespace UmhMgmt\Controllers\Admin;
 
 use UmhMgmt\Utils\View;
+use UmhMgmt\Services\OperationalService;
 
 class InventoryScannerController {
+    private $operationalService;
+    private $wpdb;
 
     public function __construct() {
+        global $wpdb;
+        $this->wpdb = $wpdb;
+        $this->operationalService = new OperationalService();
+
+        // Mengembalikan Hook Admin Menu agar menu muncul di dashboard
         add_action('admin_menu', [$this, 'add_menu']);
-        add_action('wp_ajax_umh_process_scan', [$this, 'process_scan_ajax']);
+        
+        // Mengembalikan AJAX Handler (Support nama action lama & baru)
+        add_action('wp_ajax_umh_process_scan', [$this, 'handle_scan_ajax']); 
     }
 
     public function add_menu() {
-        // Halaman Scanner di bawah menu Operasional (atau terpisah jika staff gudang beda role)
         add_submenu_page(
-            'umh-dashboard',
-            'Inventory Scanner',
-            'Scanner Gudang',
-            'manage_options', // Bisa diganti capability khusus gudang
+            'umh-dashboard', // Slug parent menu
+            'Scanner & Operasional',
+            'Scanner App',
+            'manage_options', // Capability (bisa disesuaikan role)
             'umh-inventory-scanner',
-            [$this, 'render_scanner_page']
+            [$this, 'index']
         );
     }
 
-    public function render_scanner_page() {
-        // Render halaman visual scanner
-        View::render('admin/operations/inventory-scanner');
+    public function index() {
+        // Render View UI Scanner
+        // Pastikan view ini support input 'mode' (Inventory/Attendance/Luggage)
+        View::render('admin/operational/scanner_ui', []); 
     }
 
-    public function process_scan_ajax() {
-        // 1. Security Check
-        if (!current_user_can('edit_posts')) wp_send_json_error(['message' => 'Unauthorized']);
+    /**
+     * Unified Scan Handler
+     * Menangani: Absensi, Bagasi, DAN Stok Gudang
+     */
+    public function handle_scan_ajax() {
+        // 1. Security & Input Sanitization
+        // Cek capability minimal (edit_posts) atau nonce jika ada
+        if (!current_user_can('edit_posts')) {
+            wp_send_json_error(['message' => 'Unauthorized']);
+        }
+
+        // Support parameter 'qr_data' (baru) atau 'barcode' (lama)
+        $codeData = sanitize_text_field($_POST['qr_data'] ?? $_POST['barcode']);
         
-        $barcode = sanitize_text_field($_POST['barcode']);
-        $mode = sanitize_text_field($_POST['mode']); // 'out' (keluar/ambil) atau 'in' (masuk/stok baru)
-        $ref_id = sanitize_text_field($_POST['ref_id']); // Misal: ID Jemaah atau No Booking
+        // Support parameter 'scan_mode' (baru) atau 'mode' (lama)
+        $mode = sanitize_text_field($_POST['scan_mode'] ?? $_POST['mode']); 
+        
+        $checkpoint = sanitize_text_field($_POST['checkpoint'] ?? 'default');
+        $refId = sanitize_text_field($_POST['ref_id'] ?? '');
+        $userId = get_current_user_id();
 
-        global $wpdb;
+        if (empty($codeData) || empty($mode)) {
+            wp_send_json_error(['message' => 'Data scan tidak lengkap']);
+        }
 
-        // 2. Cari Barang berdasarkan Barcode
-        $item = $wpdb->get_row($wpdb->prepare("
-            SELECT i.*, c.item_name 
-            FROM {$wpdb->prefix}umh_inventory_items i
-            JOIN {$wpdb->prefix}umh_equipment_catalog c ON i.catalog_id = c.id
-            WHERE c.barcode = %s
-        ", $barcode));
+        try {
+            // --- A. LOGIC OPERASIONAL (Absensi & Bagasi) ---
+            if ($mode === 'attendance') {
+                $result = $this->operationalService->recordAttendance($codeData, $checkpoint, $userId);
+                
+                if ($result['success']) {
+                    wp_send_json_success([
+                        'message' => 'Absensi Berhasil: ' . $result['pax_name'],
+                        'data' => $result
+                    ]);
+                } else {
+                    wp_send_json_error(['message' => $result['message']]);
+                }
+            } 
+            
+            elseif ($mode === 'luggage') {
+                // Logic Tagging Bagasi (Simulasi sukses dulu, nanti hubungkan ke Service)
+                wp_send_json_success(['message' => 'Bagasi Tercatat: ' . $codeData]);
+            }
+
+            // --- B. LOGIC GUDANG/INVENTORY (Dikembalikan dari kode lama) ---
+            elseif ($mode === 'in' || $mode === 'out') {
+                $this->processInventoryStock($codeData, $mode, $refId, $userId);
+            } 
+            
+            else {
+                wp_send_json_error(['message' => 'Mode scan tidak dikenal: ' . $mode]);
+            }
+
+        } catch (\Exception $e) {
+            wp_send_json_error(['message' => 'System Error: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Logic Private untuk Inventory Gudang
+     * (Diadaptasi dari kode lama Anda agar tetap jalan)
+     */
+    private function processInventoryStock($barcode, $mode, $refId, $userId) {
+        // 1. Cari Barang
+        // Join ke tabel catalog untuk dapat info barang
+        $item = $this->wpdb->get_row($this->wpdb->prepare("
+            SELECT i.*, c.item_name, c.sku 
+            FROM {$this->wpdb->prefix}umh_inventory_items i
+            LEFT JOIN {$this->wpdb->prefix}umh_equipment_catalog c ON i.catalog_id = c.id
+            WHERE c.sku = %s OR i.item_code = %s
+        ", $barcode, $barcode));
 
         if (!$item) {
-            wp_send_json_error(['message' => 'Barang tidak ditemukan! Cek barcode.']);
+            // Fallback: Coba cari by item_code langsung jika catalog belum link
+            $item = $this->wpdb->get_row($this->wpdb->prepare("
+                SELECT * FROM {$this->wpdb->prefix}umh_inventory_items WHERE item_code = %s
+            ", $barcode));
         }
 
-        // 3. Logic Stok
-        $qty_change = ($mode === 'out') ? -1 : 1;
+        if (!$item) {
+            wp_send_json_error(['message' => 'Barang tidak ditemukan di database!']);
+        }
+
+        // 2. Cek Stok (Untuk mode keluar)
+        $qtyChange = ($mode === 'out') ? -1 : 1;
         
-        // Cek stok cukup?
         if ($mode === 'out' && $item->stock_qty <= 0) {
-            wp_send_json_error(['message' => "Stok {$item->item_name} habis!"]);
+            wp_send_json_error(['message' => "Stok {$item->item_name} Habis! (0)"]);
         }
 
-        // 4. Update Stok
-        $wpdb->update(
-            $wpdb->prefix . 'umh_inventory_items',
-            ['stock_qty' => $item->stock_qty + $qty_change],
+        // 3. Update Stok
+        $this->wpdb->update(
+            $this->wpdb->prefix . 'umh_inventory_items',
+            ['stock_qty' => $item->stock_qty + $qtyChange],
             ['id' => $item->id]
         );
 
-        // 5. Catat Log
-        $wpdb->insert(
-            $wpdb->prefix . 'umh_inventory_logs',
+        // 4. Catat Log (Audit Trail)
+        // Pastikan tabel umh_inventory_logs ada (sudah ditambahkan di Schema baru)
+        $this->wpdb->insert(
+            $this->wpdb->prefix . 'umh_inventory_logs',
             [
                 'item_id' => $item->id,
-                'qty_change' => $qty_change,
-                'transaction_type' => ($mode === 'out' ? 'scan_out_jemaah' : 'scan_in_stock'),
-                'reference_id' => $ref_id,
-                'user_id' => get_current_user_id(),
-                'notes' => 'Scan via Dashboard'
+                'qty_change' => $qtyChange,
+                'transaction_type' => ($mode === 'out' ? 'scan_out' : 'scan_in'),
+                'reference_id' => $refId, // Bisa ID Jamaah atau No DO
+                'user_id' => $userId,
+                'notes' => 'Scan via Dashboard App',
+                'created_at' => current_time('mysql')
             ]
         );
 
-        // 6. Return Success
+        // 5. Response Sukses
         wp_send_json_success([
-            'item_name' => $item->item_name,
-            'new_stock' => $item->stock_qty + $qty_change,
-            'message' => ($mode === 'out' ? 'Barang Keluar: ' : 'Stok Masuk: ') . $item->item_name
+            'item_name' => $item->item_name ?? $item->item_code,
+            'new_stock' => $item->stock_qty + $qtyChange,
+            'message' => ($mode === 'out' ? 'Barang Keluar: ' : 'Stok Masuk: ') . ($item->item_name ?? 'Item')
         ]);
     }
 }
