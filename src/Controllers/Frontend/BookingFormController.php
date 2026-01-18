@@ -1,107 +1,127 @@
 <?php
-// File: BookingFormController.php
-// Location: src/Controllers/Frontend/BookingFormController.php
+// File: src/Controllers/Frontend/BookingFormController.php
 
 namespace UmhMgmt\Controllers\Frontend;
 
 use UmhMgmt\Services\BookingService;
 use UmhMgmt\Repositories\BookingRepository;
+use UmhMgmt\Repositories\PackageRepository;
 use UmhMgmt\Utils\View;
+use Exception;
 
 class BookingFormController {
-    private $service;
+    private $bookingService;
+    private $packageRepo;
 
     public function __construct() {
-        $this->service = new BookingService(new BookingRepository());
-        add_shortcode('umh_booking_form', [$this, 'render_form']);
-        add_action('admin_post_umh_submit_booking_ajax', [$this, 'handle_ajax_submission']); // Ubah ke AJAX handle
-        add_action('wp_ajax_umh_check_coupon', [$this, 'check_coupon_ajax']); // Endpoint cek kupon
-        add_action('wp_ajax_nopriv_umh_check_coupon', [$this, 'check_coupon_ajax']);
+        $this->bookingService = new BookingService(new BookingRepository());
+        $this->packageRepo = new PackageRepository();
+
+        // Shortcode untuk menampilkan form di halaman depan
+        add_shortcode('umh_booking_form', [$this, 'render_booking_form']);
+
+        // Handler Submit Form
+        add_action('admin_post_umh_submit_booking', [$this, 'handle_submit_booking']);
+        add_action('admin_post_nopriv_umh_submit_booking', [$this, 'handle_submit_booking']);
     }
 
-    public function render_form($atts) {
-        $prefill = [
-            'departure_id' => isset($_GET['departure_id']) ? absint($_GET['departure_id']) : '',
-            'package_id'   => isset($_GET['package_id']) ? absint($_GET['package_id']) : '',
-            'room_type'    => isset($_GET['room_type']) ? sanitize_text_field($_GET['room_type']) : 'quad',
-        ];
+    /**
+     * Menampilkan Form Booking (Shortcode)
+     * Usage: [umh_booking_form departure_id="123"]
+     */
+    public function render_booking_form($atts) {
+        $atts = shortcode_atts(['departure_id' => 0], $atts);
+        $departureId = intval($atts['departure_id']);
 
-        // Ambil data harga paket untuk ditampilkan di JS (Estimasi)
-        // Logic ini bisa dipindah ke View atau diload via AJAX
-        $pricing_data = []; 
-        if($prefill['package_id']) {
-            $repo = new \UmhMgmt\Repositories\PackageRepository();
-            $pricing_data = $repo->getPricing($prefill['package_id']);
+        if (!$departureId && isset($_GET['departure_id'])) {
+            $departureId = intval($_GET['departure_id']);
         }
 
+        if (!$departureId) return "<p class='error'>Jadwal keberangkatan tidak dipilih.</p>";
+
+        // Ambil Data Paket untuk ditampilkan di ringkasan
+        global $wpdb;
+        $package = $wpdb->get_row($wpdb->prepare(
+            "SELECT p.name, p.id, d.departure_date, d.available_seats 
+             FROM {$wpdb->prefix}umh_departures d
+             JOIN {$wpdb->prefix}umh_packages p ON d.package_id = p.id
+             WHERE d.id = %d", 
+            $departureId
+        ));
+
+        if (!$package) return "<p class='error'>Paket tidak ditemukan.</p>";
+
+        // Ambil Pricing untuk JS Calculator
+        $pricing = $this->packageRepo->getPricing($package->id);
+
+        // Ambil Katalog Layanan Tambahan (Add-ons)
+        $addons = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}umh_service_catalog WHERE is_active = 1");
+
         ob_start();
-        View::render('frontend/booking-form', ['atts' => $atts, 'prefill' => $prefill, 'pricing_data' => $pricing_data]);
+        View::render('frontend/booking-form', [
+            'departure_id' => $departureId,
+            'package' => $package,
+            'pricing' => $pricing,
+            'addons' => $addons,
+            'user_logged_in' => is_user_logged_in()
+        ]);
         return ob_get_clean();
     }
 
-    public function handle_ajax_submission() {
-        // if (!isset($_POST['umh_booking_nonce']) || !wp_verify_nonce($_POST['umh_booking_nonce'], 'umh_booking_nonce')) {
-        //     wp_send_json_error(['message' => 'Security check failed']);
-        // }
-
-        $user_id = get_current_user_id();
-        if(!$user_id) {
-             // Opsional: Auto-register user baru
-             // Untuk sekarang wajib login
-             wp_send_json_error(['message' => 'Silakan login terlebih dahulu.']);
-        }
-
-        $sanitized_data = [
-            'departure_id' => isset($_POST['departure_id']) ? absint($_POST['departure_id']) : 0,
-            'customer_user_id' => $user_id,
-            'room_type' => sanitize_text_field($_POST['room_type']), // quad, triple, double
-            'coupon_code' => sanitize_text_field($_POST['coupon_code']),
-            'passengers' => []
-        ];
-
-        if (isset($_POST['passengers']) && is_array($_POST['passengers'])) {
-            foreach ($_POST['passengers'] as $passenger) {
-                $sanitized_data['passengers'][] = [
-                    'name' => sanitize_text_field($passenger['name']),
-                    'pax_type' => sanitize_text_field($passenger['pax_type']), // adult, child, infant
-                    'passport_number' => sanitize_text_field($passenger['passport_number']),
-                    'passport_expiry' => sanitize_text_field($passenger['passport_expiry']),
-                ];
-            }
+    /**
+     * Handle POST Submission
+     */
+    public function handle_submit_booking() {
+        if (!isset($_POST['umh_booking_nonce']) || !wp_verify_nonce($_POST['umh_booking_nonce'], 'submit_booking')) {
+            wp_die('Security check failed');
         }
 
         try {
-            $booking_id = $this->service->createBooking($sanitized_data);
-            wp_send_json_success([
-                'message' => 'Booking berhasil dibuat! ID #' . $booking_id,
-                'redirect_url' => home_url('/member-area?booking_created=' . $booking_id)
-            ]);
-        } catch (\Exception $e) {
-            wp_send_json_error(['message' => $e->getMessage()]);
-        }
-    }
+            // 1. Persiapkan Data
+            $bookingData = [
+                'departure_id' => intval($_POST['departure_id']),
+                'customer_user_id' => get_current_user_id(), // 0 jika guest (perlu logic registrasi guest idealnya)
+                'branch_id' => 1, // Default branch pusat dulu
+                'room_type' => sanitize_text_field($_POST['room_type']),
+                'coupon_code' => sanitize_text_field($_POST['coupon_code'] ?? ''),
+                'addons' => isset($_POST['addons']) ? array_map('intval', $_POST['addons']) : [],
+                'passengers' => []
+            ];
 
-    public function check_coupon_ajax() {
-        $code = sanitize_text_field($_POST['code']);
-        global $wpdb;
-        
-        $coupon = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}umh_coupons WHERE code = %s AND (expiry_date >= CURDATE() OR expiry_date IS NULL)", 
-            $code
-        ));
-
-        if ($coupon) {
-            if ($coupon->usage_limit > 0 && $coupon->used_count >= $coupon->usage_limit) {
-                wp_send_json_error(['message' => 'Kupon sudah habis digunakan.']);
-            } else {
-                wp_send_json_success([
-                    'type' => $coupon->discount_type, // percent or fixed
-                    'amount' => floatval($coupon->amount),
-                    'message' => 'Kupon valid!'
-                ]);
+            // 2. Parse Passengers
+            if (isset($_POST['pax_name']) && is_array($_POST['pax_name'])) {
+                for ($i = 0; $i < count($_POST['pax_name']); $i++) {
+                    $bookingData['passengers'][] = [
+                        'name' => sanitize_text_field($_POST['pax_name'][$i]),
+                        'pax_type' => sanitize_text_field($_POST['pax_type'][$i]), // adult, child, infant
+                        'passport_number' => sanitize_text_field($_POST['pax_passport'][$i] ?? ''),
+                        'passport_expiry' => sanitize_text_field($_POST['pax_expiry'][$i] ?? '')
+                    ];
+                }
             }
-        } else {
-            wp_send_json_error(['message' => 'Kode kupon tidak valid.']);
+
+            if (empty($bookingData['passengers'])) {
+                throw new Exception("Data penumpang tidak boleh kosong.");
+            }
+
+            // 3. Jika user belum login, idealnya buat user baru disini atau paksa login
+            if ($bookingData['customer_user_id'] == 0) {
+                 // Sederhana: Redirect login dulu
+                 wp_redirect(wp_login_url(add_query_arg($_POST, wp_get_referer())));
+                 exit;
+            }
+
+            // 4. Panggil Service
+            $bookingId = $this->bookingService->createBooking($bookingData);
+
+            // 5. Redirect ke Invoice / Payment
+            $url = admin_url('admin-post.php?action=umh_print_invoice&booking_id=' . $bookingId);
+            // Atau halaman terima kasih
+            wp_redirect($url);
+            exit;
+
+        } catch (Exception $e) {
+            wp_die("Terjadi Kesalahan: " . $e->getMessage());
         }
     }
 }

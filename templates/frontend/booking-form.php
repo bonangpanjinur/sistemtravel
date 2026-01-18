@@ -1,107 +1,123 @@
-<?php
-// File: booking-form.php
-// Location: templates/frontend/booking-form.php
-
-/** @var array $prefill Data dari URL (departure_id, package_id, dll) */
-/** @var array $pricing_data Data harga raw dari controller */
-
-// Ambil detail keberangkatan
-$selected_departure = null;
-if (!empty($prefill['departure_id'])) {
-    global $wpdb;
-    $selected_departure = $wpdb->get_row($wpdb->prepare("
-        SELECT d.*, p.name as package_name 
-        FROM {$wpdb->prefix}umh_departures d
-        JOIN {$wpdb->prefix}umh_packages p ON d.package_id = p.id
-        WHERE d.id = %d
-    ", $prefill['departure_id']));
-}
+<?php 
+// File: templates/frontend/booking-form.php
+// UI untuk Frontend Booking
 ?>
-
-<div class="umh-booking-wrapper">
-    <!-- Load Pricing Data ke JS Variable -->
-    <script>
-        var umhPricing = <?php echo json_encode($pricing_data); ?>;
-    </script>
-
-    <h2 style="text-align:center; margin-bottom:30px;">Formulir Pendaftaran Umroh</h2>
-
-    <div id="umh-form-message" style="display:none; padding:15px; margin-bottom:20px; border-radius:4px;"></div>
-
-    <?php if ($selected_departure): ?>
-        <div class="umh-summary-box" style="background:#f0f9ff; padding:15px; border:1px solid #bde0fe; margin-bottom:20px;">
-            <h4 style="margin-top:0;">📦 Paket: <?php echo esc_html($selected_departure->package_name); ?></h4>
-            <p>📅 Tanggal: <strong><?php echo date('d F Y', strtotime($selected_departure->departure_date)); ?></strong></p>
+<div class="umh-booking-container">
+    <div class="umh-booking-header">
+        <h3>Formulir Pemesanan Umroh</h3>
+        <div class="package-summary">
+            <strong><?php echo esc_html($package->name); ?></strong>
+            <br>Keberangkatan: <?php echo date('d F Y', strtotime($package->departure_date)); ?>
+            <br>Sisa Kursi: <span class="badge badge-info"><?php echo intval($package->available_seats); ?></span>
         </div>
-    <?php endif; ?>
+    </div>
 
-    <form id="umh-booking-form">
-        <!-- Hidden Inputs -->
-        <input type="hidden" name="action" value="umh_submit_booking_ajax">
-        <input type="hidden" name="departure_id" value="<?php echo esc_attr($prefill['departure_id']); ?>">
-        <?php wp_nonce_field('umh_booking_nonce', 'umh_booking_nonce'); ?>
+    <?php if (!$user_logged_in): ?>
+        <div class="alert alert-warning">
+            Silakan <a href="<?php echo wp_login_url(get_permalink()); ?>">Login</a> terlebih dahulu untuk melanjutkan pemesanan.
+        </div>
+    <?php else: ?>
 
-        <!-- Pilihan Kamar (Global untuk Booking ini) -->
-        <div class="umh-form-group" style="margin-bottom:20px;">
-            <label class="umh-form-label" style="font-weight:bold;">Pilihan Tipe Kamar</label>
-            <select name="room_type" id="room_type" class="umh-form-control" style="width:100%; padding:10px;">
-                <option value="quad" <?php selected($prefill['room_type'], 'quad'); ?>>Quad (Sekamar Ber-4)</option>
-                <option value="triple" <?php selected($prefill['room_type'], 'triple'); ?>>Triple (Sekamar Ber-3)</option>
-                <option value="double" <?php selected($prefill['room_type'], 'double'); ?>>Double (Sekamar Ber-2)</option>
-            </select>
+    <form id="umhBookingForm" action="<?php echo admin_url('admin-post.php'); ?>" method="POST">
+        <input type="hidden" name="action" value="umh_submit_booking">
+        <input type="hidden" name="departure_id" value="<?php echo esc_attr($departure_id); ?>">
+        <?php wp_nonce_field('submit_booking', 'umh_booking_nonce'); ?>
+
+        <!-- 1. Pilih Tipe Kamar -->
+        <div class="form-section">
+            <h4>1. Pilih Tipe Kamar</h4>
+            <div class="room-options">
+                <?php foreach ($pricing as $type => $price): 
+                    if(in_array($type, ['quad','triple','double'])): ?>
+                    <label class="room-option-card">
+                        <input type="radio" name="room_type" value="<?php echo $type; ?>" data-price="<?php echo $price; ?>" <?php echo ($type === 'quad') ? 'checked' : ''; ?> required>
+                        <div class="room-detail">
+                            <span class="room-title"><?php echo ucfirst($type); ?></span>
+                            <span class="room-price">Rp <?php echo number_format($price, 0, ',', '.'); ?></span>
+                        </div>
+                    </label>
+                <?php endif; endforeach; ?>
+            </div>
         </div>
 
-        <h3 class="umh-section-title" style="border-bottom:2px solid #eee; padding-bottom:10px;">👤 Data Jamaah</h3>
-        
-        <div id="passenger-repeater">
-            <div class="passenger-item umh-passenger-card" data-index="0" style="background:#f9f9f9; padding:15px; margin-bottom:15px; border:1px solid #ddd;">
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <strong>Jamaah #1</strong>
-                </div>
-                
-                <div class="umh-form-group">
-                    <label>Nama Lengkap (Sesuai Paspor)</label>
-                    <input type="text" name="passengers[0][name]" required class="umh-form-control" style="width:100%;">
-                </div>
-
-                <div style="display:flex; gap:15px; margin-top:10px;">
-                    <div style="flex:1;">
-                        <label>Tipe Jamaah</label>
-                        <select name="passengers[0][pax_type]" class="umh-form-control pax-type-select" style="width:100%;">
-                            <option value="adult">Dewasa</option>
-                            <option value="child_no_bed">Anak (No Bed)</option>
-                            <option value="infant">Bayi (< 2 Th)</option>
-                        </select>
-                    </div>
-                    <div style="flex:1;">
-                        <label>No. Paspor (Opsional)</label>
-                        <input type="text" name="passengers[0][passport_number]" class="umh-form-control" style="width:100%;">
+        <!-- 2. Data Jamaah -->
+        <div class="form-section">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4>2. Data Jamaah</h4>
+                <button type="button" id="addPaxBtn" class="btn btn-sm btn-outline-primary">+ Tambah Jamaah</button>
+            </div>
+            <div id="paxContainer">
+                <!-- Baris Jamaah 1 (Default) -->
+                <div class="pax-row" data-index="0">
+                    <div class="pax-header">Jamaah 1</div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label>Nama Lengkap (Sesuai Paspor)</label>
+                            <input type="text" name="pax_name[]" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label>Tipe</label>
+                            <select name="pax_type[]" class="form-control pax-type-select">
+                                <option value="adult">Dewasa</option>
+                                <option value="child">Anak (dengan Bed)</option>
+                                <option value="child_no_bed">Anak (Tanpa Bed)</option>
+                                <option value="infant">Bayi (< 2 Thn)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label>Nomor Paspor</label>
+                            <input type="text" name="pax_passport[]" class="form-control">
+                        </div>
+                        <div class="col-md-2">
+                            <label>Exp. Paspor</label>
+                            <input type="date" name="pax_expiry[]" class="form-control">
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <button type="button" id="add-passenger" class="button" style="margin-bottom:20px;">+ Tambah Jamaah Lain</button>
-
-        <!-- Kupon Diskon -->
-        <div style="margin-top:20px; padding:15px; background:#fffbe6; border:1px solid #ffe58f;">
-            <label style="font-weight:bold;">Kode Promo / Kupon</label>
-            <div style="display:flex; gap:10px;">
-                <input type="text" name="coupon_code" id="coupon_code" class="umh-form-control" placeholder="Masukkan kode..." style="flex:1;">
-                <button type="button" id="btn-check-coupon" class="button">Cek</button>
+        <!-- 3. Layanan Tambahan (Add-ons) -->
+        <?php if (!empty($addons)): ?>
+        <div class="form-section">
+            <h4>3. Layanan Tambahan (Opsional)</h4>
+            <div class="addons-list">
+                <?php foreach ($addons as $addon): ?>
+                <div class="form-check">
+                    <input class="form-check-input addon-checkbox" type="checkbox" name="addons[]" value="<?php echo $addon->id; ?>" id="addon_<?php echo $addon->id; ?>" data-price="<?php echo $addon->price; ?>">
+                    <label class="form-check-label" for="addon_<?php echo $addon->id; ?>">
+                        <?php echo esc_html($addon->service_name); ?> 
+                        <span class="text-muted">(+ Rp <?php echo number_format($addon->price, 0, ',', '.'); ?>)</span>
+                    </label>
+                </div>
+                <?php endforeach; ?>
             </div>
-            <div id="coupon-feedback" style="font-size:0.9rem; margin-top:5px;"></div>
+        </div>
+        <?php endif; ?>
+
+        <!-- 4. Kode Kupon -->
+        <div class="form-section bg-light">
+            <label>Punya Kode Promo?</label>
+            <div class="input-group" style="max-width: 300px;">
+                <input type="text" name="coupon_code" id="couponCode" class="form-control" placeholder="Masukkan Kode">
+                <!-- Logic validasi kupon sederhana (server side handled) -->
+            </div>
+            <small class="text-muted">Diskon akan dihitung di halaman tagihan.</small>
         </div>
 
-        <!-- Estimasi Harga (Kalkulasi JS) -->
-        <div style="margin-top:20px; text-align:right; font-size:1.2rem;">
-            Total Estimasi: <strong id="total-display" style="color:#2f855a;">Rp 0</strong>
-        </div>
-
-        <div class="umh-form-actions" style="margin-top:30px; text-align:center;">
-            <button type="submit" class="umh-btn-submit" style="background:#2271b1; color:white; padding:12px 30px; border:none; font-size:1.1rem; cursor:pointer;">
-                Konfirmasi & Pesan Sekarang
-            </button>
+        <!-- Sticky Footer Total -->
+        <div class="booking-footer">
+            <div class="total-display">
+                <small>Estimasi Total</small>
+                <div id="grandTotalDisplay">Rp 0</div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg">Lanjut Pembayaran</button>
         </div>
     </form>
+    <?php endif; ?>
 </div>
+
+<!-- Data Passing ke JS -->
+<script>
+    var umhPricing = <?php echo json_encode($pricing); ?>;
+</script>

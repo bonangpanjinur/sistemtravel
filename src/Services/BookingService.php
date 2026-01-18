@@ -41,7 +41,6 @@ class BookingService {
             if (!$departure) throw new Exception("Jadwal tidak ditemukan.");
             
             // Hitung jumlah seat yang dibutuhkan (Infant biasanya tidak butuh seat bus/pesawat, tapi opsional)
-            // Asumsi: Infant tidak mengurangi jatah kursi (tergantung kebijakan travel)
             $seats_needed = 0;
             foreach ($data['passengers'] as $pax) {
                 if ($pax['pax_type'] !== 'infant') $seats_needed++;
@@ -51,9 +50,9 @@ class BookingService {
                 throw new Exception("Mohon maaf, kursi tidak cukup. Tersisa: " . $departure->available_seats);
             }
 
-            // 4. Kalkulasi Harga Total (NEW LOGIC)
+            // 4. Kalkulasi Harga Dasar Paket (NEW LOGIC)
             $pricing = $this->packageRepo->getPricing($departure->package_id);
-            $total_price = 0;
+            $total_price_package = 0;
             $passengers_with_price = [];
 
             foreach ($data['passengers'] as $pax) {
@@ -78,20 +77,45 @@ class BookingService {
                     }
                 }
 
-                $total_price += $unit_price;
+                $total_price_package += $unit_price;
                 $passengers_with_price[] = array_merge($pax, ['unit_price' => $unit_price]);
             }
 
-            // 5. Apply Kupon (Jika ada)
+            // 5. Kalkulasi & Simpan Add-ons (Layanan Tambahan) [BARU]
+            $addons_total = 0;
+            $addons_data = [];
+            
+            if (isset($data['addons']) && is_array($data['addons'])) {
+                foreach ($data['addons'] as $addon_id) {
+                    $service = $this->wpdb->get_row($this->wpdb->prepare(
+                        "SELECT id, service_name, price FROM {$this->wpdb->prefix}umh_service_catalog WHERE id = %d AND is_active = 1",
+                        $addon_id
+                    ));
+                    
+                    if ($service) {
+                        $addons_total += $service->price;
+                        $addons_data[] = [
+                            'service_id' => $service->id,
+                            'price' => $service->price,
+                            'name' => $service->service_name
+                        ];
+                    }
+                }
+            }
+
+            // Gabungkan Total
+            $grand_total = $total_price_package + $addons_total;
+
+            // 6. Apply Kupon (Jika ada)
             $discount_total = 0;
             if (!empty($data['coupon_code'])) {
-                $discount_total = $this->validateAndCalculateCoupon($data['coupon_code'], $total_price);
+                $discount_total = $this->validateAndCalculateCoupon($data['coupon_code'], $grand_total);
             }
             
             // Final Total
-            $final_total = max(0, $total_price - $discount_total);
+            $final_total = max(0, $grand_total - $discount_total);
 
-            // 6. Simpan Booking Utama
+            // 7. Simpan Booking Utama
             $booking_data = [
                 'departure_id' => $data['departure_id'],
                 'branch_id' => $data['branch_id'] ?? 0,
@@ -106,7 +130,7 @@ class BookingService {
             $this->wpdb->insert($this->wpdb->prefix . 'umh_bookings', $booking_data);
             $bookingId = $this->wpdb->insert_id;
 
-            // 7. Simpan Penumpang
+            // 8. Simpan Penumpang
             foreach ($passengers_with_price as $pax) {
                 $this->wpdb->insert($this->wpdb->prefix . 'umh_booking_passengers', [
                     'booking_id' => $bookingId,
@@ -118,18 +142,28 @@ class BookingService {
                 ]);
             }
 
-            // 8. Kurangi Stok
+            // 9. Simpan Relasi Add-ons [BARU]
+            foreach ($addons_data as $addon) {
+                $this->wpdb->insert($this->wpdb->prefix . 'umh_booking_addons', [
+                    'booking_id' => $bookingId,
+                    'service_id' => $addon['service_id'],
+                    'quantity' => 1, // Default 1, bisa dikembangkan jika ada quantity selector
+                    'total_price' => $addon['price']
+                ]);
+            }
+
+            // 10. Kurangi Stok
             $this->repo->decreaseQuota($data['departure_id'], $seats_needed);
 
-            // 9. Update Penggunaan Kupon
+            // 11. Update Penggunaan Kupon
             if (!empty($data['coupon_code'])) {
                 $this->incrementCouponUsage($data['coupon_code']);
             }
 
-            // 10. Commit
+            // 12. Commit
             $this->wpdb->query('COMMIT');
 
-            // 11. Notifikasi
+            // 13. Notifikasi
             do_action('umh_booking_created', $bookingId);
 
             return $bookingId;

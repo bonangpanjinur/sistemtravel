@@ -66,34 +66,35 @@ class DatabaseSchema {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            "CREATE TABLE {$wpdb->prefix}umh_equipment_catalog (
+            // [BARU] Tabel Kurs Mata Uang
+            "CREATE TABLE {$wpdb->prefix}umh_exchange_rates (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                item_name VARCHAR(255) NOT NULL,
-                sku VARCHAR(50) UNIQUE,
-                cost_price DECIMAL(15,2) DEFAULT 0,
-                description TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                currency_code VARCHAR(5) NOT NULL UNIQUE, -- USD, SAR
+                rate_to_idr DECIMAL(15,2) NOT NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            "CREATE TABLE {$wpdb->prefix}umh_bank_accounts (
+            // [BARU] Katalog Layanan Tambahan (Add-ons)
+            "CREATE TABLE {$wpdb->prefix}umh_service_catalog (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                bank_name VARCHAR(100) NOT NULL,
-                account_number VARCHAR(50) NOT NULL,
-                account_holder VARCHAR(255) NOT NULL,
-                swift_code VARCHAR(20),
+                service_name VARCHAR(255) NOT NULL,
+                price DECIMAL(15,2) NOT NULL,
+                unit_type VARCHAR(20) DEFAULT 'per_pax', -- per_pax, per_booking
+                description TEXT,
                 is_active TINYINT(1) DEFAULT 1,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            "CREATE TABLE {$wpdb->prefix}umh_visa_providers (
+            // [BARU] Master Tipe Dokumen (KTP, Paspor, Buku Kuning, dll)
+            "CREATE TABLE {$wpdb->prefix}umh_master_document_types (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                provider_name VARCHAR(255) NOT NULL,
-                contact_info TEXT,
-                base_visa_cost DECIMAL(15,2) DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                doc_name VARCHAR(100) NOT NULL,
+                is_mandatory TINYINT(1) DEFAULT 1,
+                required_for VARCHAR(20) DEFAULT 'all', -- all, adult, child
+                description TEXT
             ) $charset_collate;",
 
-            // --- 2. PACKAGES & PRICING (UPDATED SPRINT 1) ---
+            // --- 2. PACKAGES & PRICING ---
             "CREATE TABLE {$wpdb->prefix}umh_packages (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
@@ -103,14 +104,13 @@ class DatabaseSchema {
                 airline_id BIGINT,
                 departure_airport VARCHAR(100),
                 package_image_url VARCHAR(255),
-                base_price DECIMAL(15,2) DEFAULT 0, -- Base Price Fallback
+                base_price DECIMAL(15,2) DEFAULT 0,
                 duration_days INT DEFAULT 9,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 deleted_at DATETIME NULL DEFAULT NULL,
                 status VARCHAR(20) DEFAULT 'active'
             ) $charset_collate;",
 
-            // [UPDATED] Room Type sekarang VARCHAR agar support 'infant', 'child_no_bed', dll.
             "CREATE TABLE {$wpdb->prefix}umh_package_pricing (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 package_id BIGINT NOT NULL,
@@ -120,7 +120,6 @@ class DatabaseSchema {
                 FOREIGN KEY (package_id) REFERENCES {$wpdb->prefix}umh_packages(id) ON DELETE CASCADE
             ) $charset_collate;",
 
-            // [NEW] Coupons Table
             "CREATE TABLE {$wpdb->prefix}umh_coupons (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 code VARCHAR(50) UNIQUE NOT NULL,
@@ -177,14 +176,14 @@ class DatabaseSchema {
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 item_id BIGINT NOT NULL,
                 qty_change INT NOT NULL,
-                transaction_type VARCHAR(50), -- in, out, adjustment
+                transaction_type VARCHAR(50),
                 reference_id VARCHAR(50),
                 user_id BIGINT,
                 notes TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            // --- 4. BOOKING ENGINE (UPDATED SPRINT 1) ---
+            // --- 4. BOOKING ENGINE ---
             "CREATE TABLE {$wpdb->prefix}umh_bookings (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 departure_id BIGINT,
@@ -192,8 +191,8 @@ class DatabaseSchema {
                 customer_user_id BIGINT(20) UNSIGNED NULL,
                 agent_id BIGINT(20) UNSIGNED NULL,
                 total_price DECIMAL(15,2) NOT NULL,
-                discount_total DECIMAL(15,2) DEFAULT 0, -- [NEW]
-                coupon_code VARCHAR(50) NULL, -- [NEW]
+                discount_total DECIMAL(15,2) DEFAULT 0,
+                coupon_code VARCHAR(50) NULL,
                 status VARCHAR(50) DEFAULT 'pending',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 deleted_at DATETIME NULL DEFAULT NULL,
@@ -201,22 +200,33 @@ class DatabaseSchema {
                 FOREIGN KEY (branch_id) REFERENCES {$wpdb->prefix}umh_branches(id) ON DELETE SET NULL
             ) $charset_collate;",
 
+            // [BARU] Tabel Relasi Add-ons per Booking
+            "CREATE TABLE {$wpdb->prefix}umh_booking_addons (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                booking_id BIGINT NOT NULL,
+                service_id BIGINT NOT NULL,
+                quantity INT DEFAULT 1,
+                total_price DECIMAL(15,2) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE,
+                FOREIGN KEY (service_id) REFERENCES {$wpdb->prefix}umh_service_catalog(id)
+            ) $charset_collate;",
+
             "CREATE TABLE {$wpdb->prefix}umh_booking_passengers (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 booking_id BIGINT,
                 name VARCHAR(255) NOT NULL,
-                pax_type VARCHAR(20) DEFAULT 'adult', -- [NEW] adult, child, infant
+                pax_type VARCHAR(20) DEFAULT 'adult',
                 passport_number VARCHAR(50),
                 passport_expiry DATE,
                 is_tour_leader TINYINT(1) DEFAULT 0,
                 
-                -- Document Files
+                -- Legacy Columns (Opsional jika sudah migrasi ke tabel dokumen)
                 passport_file_url TEXT,
                 ktp_file_url TEXT,
                 photo_file_url TEXT,
                 doc_verification_status VARCHAR(20) DEFAULT 'pending',
                 
-                -- Rooming List Info
                 assigned_room_number VARCHAR(20),
                 assigned_room_type VARCHAR(20),
                 
@@ -224,7 +234,22 @@ class DatabaseSchema {
                 FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
             ) $charset_collate;",
 
-            // --- 5. FINANCE & ACCOUNTING (GL) ---
+            // [BARU] Tabel Dokumen Detail Penumpang (Normalized)
+            "CREATE TABLE {$wpdb->prefix}umh_passenger_documents (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                passenger_id BIGINT NOT NULL,
+                doc_type_id BIGINT NOT NULL,
+                file_url TEXT,
+                status VARCHAR(20) DEFAULT 'pending', -- pending, verified, rejected
+                verified_by BIGINT,
+                verified_at DATETIME,
+                notes TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (passenger_id) REFERENCES {$wpdb->prefix}umh_booking_passengers(id) ON DELETE CASCADE,
+                FOREIGN KEY (doc_type_id) REFERENCES {$wpdb->prefix}umh_master_document_types(id)
+            ) $charset_collate;",
+
+            // --- 5. FINANCE & ACCOUNTING ---
             "CREATE TABLE {$wpdb->prefix}umh_payments (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 booking_id BIGINT NOT NULL,
@@ -270,7 +295,6 @@ class DatabaseSchema {
                 FOREIGN KEY (account_code) REFERENCES {$wpdb->prefix}umh_gl_accounts(account_code)
             ) $charset_collate;",
             
-            // --- SPRINT 3: MANAJEMEN REFUND ---
             "CREATE TABLE {$wpdb->prefix}umh_refunds (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 booking_id BIGINT NOT NULL,
@@ -278,7 +302,7 @@ class DatabaseSchema {
                 amount_requested DECIMAL(15,2),
                 cancellation_fee DECIMAL(15,2) DEFAULT 0,
                 amount_approved DECIMAL(15,2) DEFAULT 0,
-                status VARCHAR(50) DEFAULT 'requested', -- requested, approved, paid, rejected
+                status VARCHAR(50) DEFAULT 'requested', 
                 requested_by BIGINT,
                 approved_by BIGINT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -286,7 +310,7 @@ class DatabaseSchema {
                 FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
             ) $charset_collate;",
 
-            // --- 6. AGENT SYSTEM ---
+            // --- 6. AGENT SYSTEM, OPERATIONAL, SUPPORT, SETTINGS ---
             "CREATE TABLE {$wpdb->prefix}umh_commissions (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 agent_id BIGINT(20) UNSIGNED NOT NULL,
@@ -316,7 +340,6 @@ class DatabaseSchema {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            // --- 7. OPERATIONAL & HANDLING ---
             "CREATE TABLE {$wpdb->prefix}umh_luggage (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 passenger_id BIGINT NOT NULL,
@@ -327,14 +350,13 @@ class DatabaseSchema {
                 FOREIGN KEY (passenger_id) REFERENCES {$wpdb->prefix}umh_booking_passengers(id) ON DELETE CASCADE
             ) $charset_collate;",
             
-            // --- SPRINT 2: LOGISTIK PER JEMAAH ---
             "CREATE TABLE {$wpdb->prefix}umh_passenger_equipment (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 passenger_id BIGINT NOT NULL,
                 item_id BIGINT NOT NULL,
-                status VARCHAR(20) DEFAULT 'taken', -- taken (diambil), returned (dikembalikan)
+                status VARCHAR(20) DEFAULT 'taken',
                 taken_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                staff_id BIGINT, -- Staff yang menyerahkan barang
+                staff_id BIGINT,
                 FOREIGN KEY (passenger_id) REFERENCES {$wpdb->prefix}umh_booking_passengers(id) ON DELETE CASCADE,
                 FOREIGN KEY (item_id) REFERENCES {$wpdb->prefix}umh_inventory_items(id)
             ) $charset_collate;",
@@ -349,7 +371,6 @@ class DatabaseSchema {
                 FOREIGN KEY (passenger_id) REFERENCES {$wpdb->prefix}umh_booking_passengers(id) ON DELETE CASCADE
             ) $charset_collate;",
 
-            // --- 8. JEMAAH EXPERIENCE ---
             "CREATE TABLE {$wpdb->prefix}umh_jemaah_progress (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 booking_id BIGINT NOT NULL,
@@ -368,7 +389,6 @@ class DatabaseSchema {
                 is_active TINYINT(1) DEFAULT 1
             ) $charset_collate;",
 
-            // --- 9. SUPPORTING TABLES ---
             "CREATE TABLE {$wpdb->prefix}umh_haji_queue (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 customer_user_id BIGINT(20) UNSIGNED NOT NULL,
@@ -428,5 +448,75 @@ class DatabaseSchema {
                 setting_value LONGTEXT
             ) $charset_collate;"
         ];
+    }
+
+    /**
+     * Fungsi Seeding untuk Data Awal
+     */
+    public static function seed_initial_data() {
+        global $wpdb;
+
+        // 1. Seed Kurs Mata Uang (Default)
+        $wpdb->replace($wpdb->prefix . 'umh_exchange_rates', [
+            'currency_code' => 'SAR',
+            'rate_to_idr' => 4250.00
+        ]);
+        $wpdb->replace($wpdb->prefix . 'umh_exchange_rates', [
+            'currency_code' => 'USD',
+            'rate_to_idr' => 15500.00
+        ]);
+
+        // 2. Seed Katalog Layanan Tambahan (Contoh)
+        $services = [
+            ['Kursi Roda', 2000000, 'per_pax', 'Layanan kursi roda selama ibadah + pendorong'],
+            ['Mutawwif Khusus', 3000000, 'per_booking', 'Pembimbing ibadah privat untuk keluarga'],
+            ['Upgrade Hotel', 5000000, 'per_pax', 'Upgrade ke View Kabah / Hotel Bintang 5'],
+            ['Kereta Cepat Haramain', 750000, 'per_pax', 'Tiket Business Class Mekkah-Madinah'],
+            ['Laundry Package', 500000, 'per_pax', 'Layanan laundry full selama perjalanan']
+        ];
+
+        foreach ($services as $svc) {
+            // Cek exist by name
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}umh_service_catalog WHERE service_name = %s", 
+                $svc[0]
+            ));
+            
+            if (!$exists) {
+                $wpdb->insert($wpdb->prefix . 'umh_service_catalog', [
+                    'service_name' => $svc[0],
+                    'price' => $svc[1],
+                    'unit_type' => $svc[2],
+                    'description' => $svc[3],
+                    'is_active' => 1
+                ]);
+            }
+        }
+
+        // 3. Seed Master Document Types
+        $docs = [
+            ['KTP', 1, 'all'],
+            ['Kartu Keluarga', 1, 'all'],
+            ['Paspor', 1, 'all'],
+            ['Buku Nikah', 0, 'adult'], // Wajib jika suami istri
+            ['Akte Lahir', 1, 'child'],
+            ['Buku Kuning (Meningitis)', 1, 'all'],
+            ['Pas Foto 4x6', 1, 'all']
+        ];
+
+        foreach ($docs as $doc) {
+            $exists = $wpdb->get_var($wpdb->prepare(
+                "SELECT id FROM {$wpdb->prefix}umh_master_document_types WHERE doc_name = %s", 
+                $doc[0]
+            ));
+            
+            if (!$exists) {
+                $wpdb->insert($wpdb->prefix . 'umh_master_document_types', [
+                    'doc_name' => $doc[0],
+                    'is_mandatory' => $doc[1],
+                    'required_for' => $doc[2]
+                ]);
+            }
+        }
     }
 }

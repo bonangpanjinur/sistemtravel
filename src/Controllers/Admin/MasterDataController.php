@@ -6,6 +6,7 @@ namespace UmhMgmt\Controllers\Admin;
 
 use UmhMgmt\Utils\View;
 use UmhMgmt\Repositories\MasterDataRepository;
+use UmhMgmt\Config\DatabaseSchema;
 
 class MasterDataController {
     private $repo;
@@ -30,6 +31,9 @@ class MasterDataController {
 
         add_action('admin_post_umh_save_airport', [$this, 'handle_save_airport']);
         add_action('admin_post_umh_delete_airport', [$this, 'handle_delete_airport']);
+
+        // [NEW] Handler untuk Seeding Data
+        add_action('admin_post_umh_seed_master_data', [$this, 'handle_seeding']);
     }
 
     public function enqueue_admin_scripts($hook) {
@@ -72,16 +76,29 @@ class MasterDataController {
                 break;
         }
 
+        // Tombol Seeding (bisa ditaruh di view, tapi kita inject data flagnya)
+        $data['show_seed_button'] = true;
+
         View::render('admin/master-data', $data);
+    }
+
+    // --- HANDLER SEEDING ---
+    public function handle_seeding() {
+        check_admin_referer('umh_master_nonce');
+        if (!current_user_can('manage_options')) wp_die('Unauthorized');
+
+        // Panggil fungsi static dari DatabaseSchema
+        DatabaseSchema::seed_initial_data();
+
+        wp_redirect(admin_url('admin.php?page=umh-master&message=seeded'));
+        exit;
     }
 
     // --- HANDLERS (Simpan & Hapus) ---
 
     // ... (Hotel & Airline Handlers sama seperti sebelumnya) ...
-    public function handle_save_hotel() { /* ... kode lama ... */ 
+    public function handle_save_hotel() { 
         check_admin_referer('umh_master_nonce');
-        // ... (copy logic from previous step)
-        // Shortened for brevity, please keep your existing hotel logic
         $data = [
             'name' => sanitize_text_field($_POST['name']),
             'location' => sanitize_text_field($_POST['location']),

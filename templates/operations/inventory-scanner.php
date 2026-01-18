@@ -1,104 +1,105 @@
 <?php
-// File: inventory-scanner.php
-// Location: templates/admin/operations/inventory-scanner.php
+// File: templates/operations/inventory-scanner.php
+// Tampilan untuk Petugas Logistik / Gudang
 ?>
 <div class="wrap">
-    <h1 class="wp-heading-inline">Inventory Scanner</h1>
+    <h1 class="wp-heading-inline">Scanner Distribusi Barang</h1>
     <hr class="wp-header-end">
 
-    <div class="umh-scanner-container" style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-top:20px;">
+    <div class="umh-scanner-container" style="display: flex; gap: 20px; margin-top: 20px;">
         
-        <!-- Panel Kiri: Input Area -->
-        <div style="background:#fff; padding:30px; border:1px solid #ccc; border-radius:8px; text-align:center;">
+        <!-- Kolom Kiri: Form Scanner -->
+        <div class="scanner-box" style="flex: 1; background: #fff; padding: 20px; border: 1px solid #ccd0d4; border-radius: 4px;">
+            <h2>Input Distribusi</h2>
             
-            <!-- Toggle Mode -->
-            <div style="margin-bottom:20px;">
-                <label style="font-weight:bold; margin-right:10px;">Mode Scanner:</label>
-                <select id="scan-mode" style="font-size:16px; padding:5px;">
-                    <option value="out">📤 Barang Keluar (Ke Jemaah)</option>
-                    <option value="in">📥 Barang Masuk (Stok Baru)</option>
-                </select>
-            </div>
+            <form id="scannerForm">
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display:block; font-weight:bold; margin-bottom: 5px;">ID Penumpang / No. Paspor</label>
+                    <input type="number" id="scanPassengerId" class="regular-text" placeholder="Contoh: 101" autofocus required>
+                    <p class="description">Scan QR Code pada ID Card Jemaah</p>
+                </div>
 
-            <!-- Input Referensi (Opsional) -->
-            <div style="margin-bottom:20px;">
-                <input type="text" id="ref-id" class="large-text" placeholder="ID Jemaah / No. Booking (Opsional)" style="text-align:center;">
-            </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display:block; font-weight:bold; margin-bottom: 5px;">Kode Barang (Barcode)</label>
+                    <input type="text" id="scanItemCode" class="regular-text" placeholder="Scan Label Barang..." required>
+                </div>
 
-            <!-- Input Barcode (Fokus Utama) -->
-            <div style="margin-bottom:10px;">
-                <label style="display:block; font-weight:bold; color:#2271b1;">SCAN BARCODE DI SINI 👇</label>
-                <input type="text" id="barcode-input" class="large-text" style="font-size:24px; text-align:center; height:60px; border:2px solid #2271b1;" autofocus autocomplete="off">
-                <p class="description">Arahkan kursor ke kotak di atas, lalu scan barang.</p>
-            </div>
+                <div style="margin-top: 20px;">
+                    <button type="submit" class="button button-primary button-large" id="btnScan">
+                        <span class="dashicons dashicons-products" style="margin-top: 3px;"></span> Proses Distribusi
+                    </button>
+                </div>
+            </form>
 
-            <div id="loading-spinner" style="display:none; color:#666;">⏳ Memproses...</div>
+            <div id="scanResult" style="margin-top: 20px; display: none;"></div>
         </div>
 
-        <!-- Panel Kanan: Log Aktivitas Sesi Ini -->
-        <div style="background:#fff; padding:20px; border:1px solid #ccc; border-radius:8px;">
-            <h3>Log Aktivitas (Sesi Ini)</h3>
-            <ul id="scan-log" style="list-style:none; margin:0; padding:0; max-height:400px; overflow-y:auto;">
-                <li style="color:#888; font-style:italic; padding:10px; border-bottom:1px solid #eee;">Belum ada barang di-scan.</li>
+        <!-- Kolom Kanan: Log Aktivitas Sesi Ini -->
+        <div class="history-box" style="flex: 1; background: #f9f9f9; padding: 20px; border: 1px solid #ccd0d4;">
+            <h3>Aktivitas Terakhir</h3>
+            <ul id="scanHistory" style="list-style: none; padding: 0; margin: 0;">
+                <li style="color: #666; font-style: italic;">Belum ada aktivitas.</li>
             </ul>
         </div>
     </div>
+</div>
 
-    <!-- Audio Feedback (Opsional) -->
-    <!-- <audio id="beep-ok" src="..."></audio> -->
-    <!-- <audio id="beep-error" src="..."></audio> -->
+<script>
+jQuery(document).ready(function($) {
+    $('#scannerForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        var passengerId = $('#scanPassengerId').val();
+        var itemCode = $('#scanItemCode').val();
+        var btn = $('#btnScan');
+        var resultBox = $('#scanResult');
 
-    <script>
-        jQuery(document).ready(function($) {
-            var barcodeInput = $('#barcode-input');
-            
-            // Auto-focus agar staff tidak perlu klik terus
-            barcodeInput.focus();
-            $(document).click(function() { barcodeInput.focus(); });
+        // Loading State
+        btn.prop('disabled', true).text('Memproses...');
+        resultBox.hide().removeClass('notice-success notice-error');
 
-            // Deteksi Enter (Scanner biasanya mengirim karakter Enter di akhir scan)
-            barcodeInput.on('keypress', function(e) {
-                if (e.which == 13) {
-                    var code = $(this).val();
-                    if(code.trim() !== "") {
-                        processScan(code);
-                    }
-                    $(this).val(''); // Clear input siap scan berikutnya
-                }
-            });
-
-            function processScan(code) {
-                $('#loading-spinner').show();
-                
-                $.post(ajaxurl, {
-                    action: 'umh_process_scan',
-                    barcode: code,
-                    mode: $('#scan-mode').val(),
-                    ref_id: $('#ref-id').val()
-                }, function(response) {
-                    $('#loading-spinner').hide();
+        $.ajax({
+            url: ajaxurl,
+            method: 'POST',
+            data: {
+                action: 'umh_scan_distribution',
+                nonce: '<?php echo wp_create_nonce("umh_scanner_nonce"); ?>',
+                passenger_id: passengerId,
+                item_code: itemCode
+            },
+            success: function(response) {
+                if (response.success) {
+                    // Tampilkan Sukses
+                    resultBox.html('<p><strong>✅ SUKSES:</strong> ' + response.data.message + '</p>')
+                             .addClass('notice notice-success inline')
+                             .show();
                     
-                    if (response.success) {
-                        addLog('success', response.data.message + ' (Sisa: ' + response.data.new_stock + ')');
-                        // Play beep sound here if needed
-                    } else {
-                        addLog('error', 'GAGAL: ' + response.data.message);
-                        alert('ERROR: ' + response.data.message); // Alert agar staff sadar ada error
-                    }
-                });
-            }
+                    // Tambah ke History
+                    $('#scanHistory').prepend(
+                        '<li style="border-bottom:1px solid #ddd; padding:8px 0;">' +
+                        '<strong>' + response.data.item_name + '</strong> ke PAX-' + passengerId + 
+                        ' <span style="float:right; color:green;">OK</span></li>'
+                    );
 
-            function addLog(type, msg) {
-                var color = (type === 'success') ? 'green' : 'red';
-                var icon = (type === 'success') ? '✅' : '❌';
-                var time = new Date().toLocaleTimeString();
-                
-                var html = `<li style="padding:10px; border-bottom:1px solid #eee; color:${color};">
-                    <strong>${time}</strong> ${icon} ${msg}
-                </li>`;
-                
-                $('#scan-log').prepend(html);
+                    // Reset Input Barang (ID Penumpang biasanya tetap untuk barang berikutnya)
+                    $('#scanItemCode').val('').focus();
+                } else {
+                    // Tampilkan Error
+                    resultBox.html('<p><strong>❌ GAGAL:</strong> ' + response.data.message + '</p>')
+                             .addClass('notice notice-error inline')
+                             .show();
+                    
+                    // Play Error Sound (Optional)
+                    // new Audio('error.mp3').play();
+                }
+            },
+            error: function() {
+                resultBox.html('<p>Terjadi kesalahan koneksi.</p>').addClass('notice notice-error inline').show();
+            },
+            complete: function() {
+                btn.prop('disabled', false).html('<span class="dashicons dashicons-products"></span> Proses Distribusi');
             }
         });
-    </script>
-</div>
+    });
+});
+</script>

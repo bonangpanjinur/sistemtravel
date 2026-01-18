@@ -1,6 +1,5 @@
 <?php
-// File: RefundService.php
-// Location: src/Services/RefundService.php
+// File: src/Services/RefundService.php
 
 namespace UmhMgmt\Services;
 
@@ -15,89 +14,91 @@ class RefundService {
     }
 
     /**
-     * Membuat Request Refund Baru
+     * Menghitung estimasi refund dan penalti pembatalan
      */
-    public function createRefundRequest($bookingId, $amount, $reason, $userId) {
-        // 1. Validasi Booking
-        $booking = $this->wpdb->get_row($this->wpdb->prepare(
-            "SELECT * FROM {$this->wpdb->prefix}umh_bookings WHERE id = %d", 
-            $bookingId
-        ));
+    public function calculateRefundEstimation($bookingId) {
+        // Ambil data booking dan tanggal keberangkatan
+        $query = "
+            SELECT b.id, b.total_price, b.status, d.departure_date 
+            FROM {$this->wpdb->prefix}umh_bookings b
+            JOIN {$this->wpdb->prefix}umh_departures d ON b.departure_id = d.id
+            WHERE b.id = %d
+        ";
+        $booking = $this->wpdb->get_row($this->wpdb->prepare($query, $bookingId));
 
-        if (!$booking) throw new Exception("Booking tidak ditemukan.");
+        if (!$booking) {
+            throw new Exception("Booking tidak ditemukan.");
+        }
 
-        // 2. Hitung Estimasi Fee Pembatalan Otomatis
-        // Logic: H-30 (25%), H-14 (50%), H-7 (75%), H-3 (100%)
-        $fee = $this->calculateCancellationFee($booking->departure_id, $amount);
+        // Hitung selisih hari (H-Sekian)
+        $departureDate = new \DateTime($booking->departure_date);
+        $today = new \DateTime();
+        $interval = $today->diff($departureDate);
+        $daysUntilDeparture = (int)$interval->format('%r%a'); // %r untuk tanda negatif jika sudah lewat
 
-        // 3. Insert Request
-        $this->wpdb->insert("{$this->wpdb->prefix}umh_refunds", [
+        $penaltyPercent = 0;
+        $penaltyAmount = 0;
+        $notes = "";
+
+        // Logika Penalti (Contoh standar travel)
+        if ($daysUntilDeparture < 0) {
+            // Sudah berangkat / lewat tanggal
+            $penaltyPercent = 100;
+            $notes = "Pembatalan setelah tanggal keberangkatan (No Show).";
+        } elseif ($daysUntilDeparture <= 14) {
+            // H-14
+            $penaltyPercent = 100;
+            $notes = "Pembatalan kurang dari 14 hari sebelum keberangkatan.";
+        } elseif ($daysUntilDeparture <= 30) {
+            // H-30 s/d H-15
+            $penaltyPercent = 50;
+            $notes = "Pembatalan antara 30-15 hari sebelum keberangkatan.";
+        } elseif ($daysUntilDeparture <= 45) {
+            // H-45 s/d H-31
+            $penaltyPercent = 25;
+            $notes = "Pembatalan antara 45-31 hari sebelum keberangkatan.";
+        } else {
+            // Lebih dari H-45 (Hanya biaya admin)
+            $penaltyPercent = 10; 
+            $notes = "Biaya administrasi pembatalan.";
+        }
+
+        $penaltyAmount = $booking->total_price * ($penaltyPercent / 100);
+        $refundAmount = max(0, $booking->total_price - $penaltyAmount);
+
+        return [
             'booking_id' => $bookingId,
-            'reason' => $reason,
-            'amount_requested' => $amount,
-            'cancellation_fee' => $fee,
-            'amount_approved' => 0, // Belum disetujui
+            'total_paid' => $booking->total_price, // Asumsi lunas untuk basis perhitungan
+            'days_until_departure' => $daysUntilDeparture,
+            'penalty_percent' => $penaltyPercent,
+            'penalty_amount' => $penaltyAmount,
+            'estimated_refund' => $refundAmount,
+            'reason_note' => $notes
+        ];
+    }
+
+    public function createRefundRequest($bookingId, $reason, $userId) {
+        $estimation = $this->calculateRefundEstimation($bookingId);
+
+        $data = [
+            'booking_id' => $bookingId,
+            'reason' => sanitize_textarea_field($reason),
+            'amount_requested' => $estimation['estimated_refund'],
+            'cancellation_fee' => $estimation['penalty_amount'],
             'status' => 'requested',
             'requested_by' => $userId,
             'created_at' => current_time('mysql')
-        ]);
+        ];
+
+        $this->wpdb->insert($this->wpdb->prefix . 'umh_refunds', $data);
+        
+        // Update status booking agar tidak bisa diedit sembarangan
+        $this->wpdb->update(
+            $this->wpdb->prefix . 'umh_bookings',
+            ['status' => 'refund_requested'],
+            ['id' => $bookingId]
+        );
 
         return $this->wpdb->insert_id;
-    }
-
-    /**
-     * Helper: Hitung Penalty Fee berdasarkan tanggal berangkat
-     */
-    private function calculateCancellationFee($departureId, $amountRequested) {
-        $departure = $this->wpdb->get_row($this->wpdb->prepare(
-            "SELECT departure_date FROM {$this->wpdb->prefix}umh_departures WHERE id = %d",
-            $departureId
-        ));
-
-        if (!$departure) return 0;
-
-        $daysRemaining = (strtotime($departure->departure_date) - time()) / (60 * 60 * 24);
-
-        if ($daysRemaining <= 3) return $amountRequested * 1.0; // 100% (Hangus)
-        if ($daysRemaining <= 7) return $amountRequested * 0.75; // 75%
-        if ($daysRemaining <= 14) return $amountRequested * 0.50; // 50%
-        if ($daysRemaining <= 30) return $amountRequested * 0.25; // 25%
-        
-        return 0; // > 30 hari Full Refund (Opsional biaya admin)
-    }
-
-    /**
-     * Approve Refund (Admin Finance Only)
-     */
-    public function approveRefund($refundId, $approvedAmount, $adminId) {
-        $this->wpdb->query('START TRANSACTION');
-
-        try {
-            // Update Refund Status
-            $updated = $this->wpdb->update("{$this->wpdb->prefix}umh_refunds", [
-                'amount_approved' => $approvedAmount,
-                'status' => 'approved',
-                'approved_by' => $adminId,
-                'updated_at' => current_time('mysql')
-            ], ['id' => $refundId]);
-
-            if ($updated === false) throw new Exception("Gagal update data refund.");
-
-            // Update Status Booking jadi Cancelled/Refunded
-            $refund = $this->wpdb->get_row("SELECT booking_id FROM {$this->wpdb->prefix}umh_refunds WHERE id = $refundId");
-            $this->wpdb->update("{$this->wpdb->prefix}umh_bookings", 
-                ['status' => 'refunded'], 
-                ['id' => $refund->booking_id]
-            );
-
-            // TODO: Integrasi ke Accounting Service (Credit Bank, Debit Retur Penjualan)
-            // AccountingService::recordRefundTransaction($refundId, $approvedAmount);
-
-            $this->wpdb->query('COMMIT');
-            return true;
-        } catch (Exception $e) {
-            $this->wpdb->query('ROLLBACK');
-            throw $e;
-        }
     }
 }
