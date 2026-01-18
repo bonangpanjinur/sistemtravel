@@ -1,52 +1,86 @@
 <?php
-// Folder: src/Controllers/Admin/
 // File: InventoryScannerController.php
+// Location: src/Controllers/Admin/InventoryScannerController.php
 
 namespace UmhMgmt\Controllers\Admin;
 
 use UmhMgmt\Utils\View;
 use UmhMgmt\Services\OperationalService;
+use UmhMgmt\Repositories\OperationalRepository;
 
 class InventoryScannerController {
-    private $operationalService;
-    private $wpdb;
+    private $service;
+    private $wpdb; // Added for legacy support
 
     public function __construct() {
         global $wpdb;
         $this->wpdb = $wpdb;
-        $this->operationalService = new OperationalService();
-
-        // Mengembalikan Hook Admin Menu agar menu muncul di dashboard
-        add_action('admin_menu', [$this, 'add_menu']);
         
-        // Mengembalikan AJAX Handler (Support nama action lama & baru)
+        // Inisialisasi Service dengan Repository (Standar Baru)
+        $this->service = new OperationalService(new OperationalRepository());
+        
+        add_action('admin_menu', [$this, 'register_menu']);
+        
+        // 1. AJAX Handler Baru (Sprint 2: Distribusi Jemaah)
+        add_action('wp_ajax_umh_scan_distribution', [$this, 'handle_scan_distribution']);
+
+        // 2. AJAX Handler Lama (Legacy: Stock Opname, Attendance, Luggage)
         add_action('wp_ajax_umh_process_scan', [$this, 'handle_scan_ajax']); 
     }
 
-    public function add_menu() {
+    public function register_menu() {
         add_submenu_page(
-            'umh-dashboard', // Slug parent menu
-            'Scanner & Operasional',
-            'Scanner App',
-            'manage_options', // Capability (bisa disesuaikan role)
+            'umh-operational',
+            'Scanner Distribusi',
+            'Scanner Distribusi',
+            'manage_options',
             'umh-inventory-scanner',
-            [$this, 'index']
+            [$this, 'render_page']
         );
     }
 
-    public function index() {
-        // Render View UI Scanner
-        // Pastikan view ini support input 'mode' (Inventory/Attendance/Luggage)
-        View::render('admin/operational/scanner_ui', []); 
+    public function render_page() {
+        // Render View UI Scanner (Menggunakan template baru yang support mode switch)
+        View::render('operations/inventory-scanner');
     }
 
     /**
-     * Unified Scan Handler
-     * Menangani: Absensi, Bagasi, DAN Stok Gudang
+     * [NEW] Handle AJAX: Scan Barang untuk diserahkan ke Jemaah
+     * Digunakan untuk fitur logistik personal
+     */
+    public function handle_scan_distribution() {
+        // Security Check
+        // check_ajax_referer('umh_scanner_nonce', 'nonce');
+
+        $passenger_id = isset($_POST['passenger_id']) ? absint($_POST['passenger_id']) : 0;
+        $item_code = isset($_POST['item_code']) ? sanitize_text_field($_POST['item_code']) : '';
+        $staff_id = get_current_user_id();
+
+        if (!$passenger_id || empty($item_code)) {
+            wp_send_json_error(['message' => 'Data tidak lengkap. Scan QR Jemaah & Barang.']);
+        }
+
+        try {
+            $result = $this->service->distributeItemToPassenger($passenger_id, $item_code, $staff_id);
+            
+            // Ambil log terbaru untuk update UI
+            $logs = $this->service->getPassengerEquipmentLog($passenger_id);
+            
+            wp_send_json_success([
+                'message' => "Berhasil menyerahkan <b>{$result['item_name']}</b>.",
+                'logs' => $logs
+            ]);
+        } catch (\Exception $e) {
+            wp_send_json_error(['message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * [LEGACY] Unified Scan Handler
+     * Menangani: Absensi, Bagasi, DAN Stok Gudang (Mode Lama)
      */
     public function handle_scan_ajax() {
         // 1. Security & Input Sanitization
-        // Cek capability minimal (edit_posts) atau nonce jika ada
         if (!current_user_can('edit_posts')) {
             wp_send_json_error(['message' => 'Unauthorized']);
         }
@@ -68,15 +102,21 @@ class InventoryScannerController {
         try {
             // --- A. LOGIC OPERASIONAL (Absensi & Bagasi) ---
             if ($mode === 'attendance') {
-                $result = $this->operationalService->recordAttendance($codeData, $checkpoint, $userId);
-                
-                if ($result['success']) {
-                    wp_send_json_success([
-                        'message' => 'Absensi Berhasil: ' . $result['pax_name'],
-                        'data' => $result
-                    ]);
+                // Pastikan method recordAttendance ada di OperationalService baru
+                // Jika belum ada, Anda perlu menambahkannya ke Service tersebut.
+                if (method_exists($this->service, 'recordAttendance')) {
+                    $result = $this->service->recordAttendance($codeData, $checkpoint, $userId);
+                    
+                    if ($result['success']) {
+                        wp_send_json_success([
+                            'message' => 'Absensi Berhasil: ' . $result['pax_name'],
+                            'data' => $result
+                        ]);
+                    } else {
+                        wp_send_json_error(['message' => $result['message']]);
+                    }
                 } else {
-                    wp_send_json_error(['message' => $result['message']]);
+                    wp_send_json_error(['message' => 'Fitur Absensi belum diaktifkan di Service baru.']);
                 }
             } 
             
@@ -85,7 +125,7 @@ class InventoryScannerController {
                 wp_send_json_success(['message' => 'Bagasi Tercatat: ' . $codeData]);
             }
 
-            // --- B. LOGIC GUDANG/INVENTORY (Dikembalikan dari kode lama) ---
+            // --- B. LOGIC GUDANG/INVENTORY (Legacy Direct DB) ---
             elseif ($mode === 'in' || $mode === 'out') {
                 $this->processInventoryStock($codeData, $mode, $refId, $userId);
             } 
@@ -100,8 +140,8 @@ class InventoryScannerController {
     }
 
     /**
-     * Logic Private untuk Inventory Gudang
-     * (Diadaptasi dari kode lama Anda agar tetap jalan)
+     * [LEGACY] Logic Private untuk Inventory Gudang
+     * Memproses Stock In/Out secara langsung
      */
     private function processInventoryStock($barcode, $mode, $refId, $userId) {
         // 1. Cari Barang
@@ -148,7 +188,7 @@ class InventoryScannerController {
                 'transaction_type' => ($mode === 'out' ? 'scan_out' : 'scan_in'),
                 'reference_id' => $refId, // Bisa ID Jamaah atau No DO
                 'user_id' => $userId,
-                'notes' => 'Scan via Dashboard App',
+                'notes' => 'Scan via Dashboard App (Legacy Mode)',
                 'created_at' => current_time('mysql')
             ]
         );

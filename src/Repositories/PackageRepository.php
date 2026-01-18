@@ -24,9 +24,9 @@ class PackageRepository {
                    hma.name as hotel_madinah_name, 
                    a.name as airline_name
             FROM {$this->table} p
-            LEFT JOIN {$this->wpdb->prefix}umh_master_hotels hm ON p.hotel_mekkah_id = hm.id
-            LEFT JOIN {$this->wpdb->prefix}umh_master_hotels hma ON p.hotel_madinah_id = hma.id
-            LEFT JOIN {$this->wpdb->prefix}umh_master_airlines a ON p.airline_id = a.id
+            LEFT JOIN {$this->wpdb->prefix}umh_hotels hm ON p.hotel_mekkah_id = hm.id
+            LEFT JOIN {$this->wpdb->prefix}umh_hotels hma ON p.hotel_madinah_id = hma.id
+            LEFT JOIN {$this->wpdb->prefix}umh_airlines a ON p.airline_id = a.id
             WHERE p.status != 'archived'
             ORDER BY p.created_at DESC
         ";
@@ -41,25 +41,21 @@ class PackageRepository {
     }
 
     /**
-     * Get Pricing Tiers
-     * Note: This assumes you handle pricing in umh_packages table columns 
-     * (base_price_quad, base_price_triple, etc.) as per the full schema, 
-     * or you can map them to an array if you prefer a unified interface.
+     * Get Pricing Tiers (Flexible)
+     * Mengembalikan array asosiatif: ['quad' => 30jt, 'triple' => 32jt, 'infant' => 5jt, ...]
      */
     public function getPricing($package_id) {
-        // Since the full schema stores prices directly in the packages table,
-        // we can extract them from the package object itself or query specifically.
-        // If you still want to use a separate logic or table, adjust here.
-        // For now, let's fetch from the package row for consistency with full schema.
-        
-        $package = $this->find($package_id);
-        if (!$package) return [];
+        $prices = $this->wpdb->get_results($this->wpdb->prepare(
+            "SELECT room_type, price FROM {$this->wpdb->prefix}umh_package_pricing WHERE package_id = %d", 
+            $package_id
+        ));
 
-        return [
-            'quad' => $package->base_price_quad,
-            'triple' => $package->base_price_triple,
-            'double' => $package->base_price_double
-        ];
+        $pricing_map = [];
+        foreach ($prices as $p) {
+            $pricing_map[$p->room_type] = floatval($p->price);
+        }
+        
+        return $pricing_map;
     }
 
     /**

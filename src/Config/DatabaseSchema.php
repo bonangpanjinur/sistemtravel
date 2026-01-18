@@ -93,7 +93,7 @@ class DatabaseSchema {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            // --- 2. PACKAGES ---
+            // --- 2. PACKAGES & PRICING (UPDATED SPRINT 1) ---
             "CREATE TABLE {$wpdb->prefix}umh_packages (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
@@ -110,13 +110,26 @@ class DatabaseSchema {
                 status VARCHAR(20) DEFAULT 'active'
             ) $charset_collate;",
 
+            // [UPDATED] Room Type sekarang VARCHAR agar support 'infant', 'child_no_bed', dll.
             "CREATE TABLE {$wpdb->prefix}umh_package_pricing (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 package_id BIGINT NOT NULL,
-                room_type ENUM('quad', 'triple', 'double') NOT NULL,
+                room_type VARCHAR(50) NOT NULL, 
                 price DECIMAL(15,2) NOT NULL,
                 currency VARCHAR(3) DEFAULT 'IDR',
                 FOREIGN KEY (package_id) REFERENCES {$wpdb->prefix}umh_packages(id) ON DELETE CASCADE
+            ) $charset_collate;",
+
+            // [NEW] Coupons Table
+            "CREATE TABLE {$wpdb->prefix}umh_coupons (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                code VARCHAR(50) UNIQUE NOT NULL,
+                discount_type ENUM('fixed', 'percent') NOT NULL,
+                amount DECIMAL(15,2) NOT NULL,
+                expiry_date DATE,
+                usage_limit INT DEFAULT 0,
+                used_count INT DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
             "CREATE TABLE {$wpdb->prefix}umh_package_itineraries (
@@ -171,7 +184,7 @@ class DatabaseSchema {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            // --- 4. BOOKING ENGINE ---
+            // --- 4. BOOKING ENGINE (UPDATED SPRINT 1) ---
             "CREATE TABLE {$wpdb->prefix}umh_bookings (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 departure_id BIGINT,
@@ -179,6 +192,8 @@ class DatabaseSchema {
                 customer_user_id BIGINT(20) UNSIGNED NULL,
                 agent_id BIGINT(20) UNSIGNED NULL,
                 total_price DECIMAL(15,2) NOT NULL,
+                discount_total DECIMAL(15,2) DEFAULT 0, -- [NEW]
+                coupon_code VARCHAR(50) NULL, -- [NEW]
                 status VARCHAR(50) DEFAULT 'pending',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 deleted_at DATETIME NULL DEFAULT NULL,
@@ -190,6 +205,7 @@ class DatabaseSchema {
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 booking_id BIGINT,
                 name VARCHAR(255) NOT NULL,
+                pax_type VARCHAR(20) DEFAULT 'adult', -- [NEW] adult, child, infant
                 passport_number VARCHAR(50),
                 passport_expiry DATE,
                 is_tour_leader TINYINT(1) DEFAULT 0,
@@ -236,14 +252,12 @@ class DatabaseSchema {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            // [NEW] General Ledger Accounts
             "CREATE TABLE {$wpdb->prefix}umh_gl_accounts (
                 account_code VARCHAR(20) PRIMARY KEY,
                 account_name VARCHAR(100) NOT NULL,
                 account_type ENUM('ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE') NOT NULL
             ) $charset_collate;",
 
-            // [NEW] General Ledger Entries
             "CREATE TABLE {$wpdb->prefix}umh_gl_entries (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -255,8 +269,24 @@ class DatabaseSchema {
                 created_by BIGINT UNSIGNED,
                 FOREIGN KEY (account_code) REFERENCES {$wpdb->prefix}umh_gl_accounts(account_code)
             ) $charset_collate;",
+            
+            // --- SPRINT 3: MANAJEMEN REFUND ---
+            "CREATE TABLE {$wpdb->prefix}umh_refunds (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                booking_id BIGINT NOT NULL,
+                reason TEXT,
+                amount_requested DECIMAL(15,2),
+                cancellation_fee DECIMAL(15,2) DEFAULT 0,
+                amount_approved DECIMAL(15,2) DEFAULT 0,
+                status VARCHAR(50) DEFAULT 'requested', -- requested, approved, paid, rejected
+                requested_by BIGINT,
+                approved_by BIGINT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
+            ) $charset_collate;",
 
-            // --- 6. AGENT SYSTEM (MLM & REWARDS) ---
+            // --- 6. AGENT SYSTEM ---
             "CREATE TABLE {$wpdb->prefix}umh_commissions (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 agent_id BIGINT(20) UNSIGNED NOT NULL,
@@ -268,7 +298,6 @@ class DatabaseSchema {
                 FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
             ) $charset_collate;",
 
-            // [NEW] Agent Relations (MLM)
             "CREATE TABLE {$wpdb->prefix}umh_agent_relations (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 agent_id BIGINT(20) UNSIGNED NOT NULL UNIQUE,
@@ -277,7 +306,6 @@ class DatabaseSchema {
                 joined_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
-            // [NEW] Agent Points
             "CREATE TABLE {$wpdb->prefix}umh_agent_points (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 agent_id BIGINT(20) UNSIGNED NOT NULL,
@@ -289,7 +317,6 @@ class DatabaseSchema {
             ) $charset_collate;",
 
             // --- 7. OPERATIONAL & HANDLING ---
-            // [NEW] Luggage
             "CREATE TABLE {$wpdb->prefix}umh_luggage (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 passenger_id BIGINT NOT NULL,
@@ -299,8 +326,19 @@ class DatabaseSchema {
                 last_scanned_loc VARCHAR(100),
                 FOREIGN KEY (passenger_id) REFERENCES {$wpdb->prefix}umh_booking_passengers(id) ON DELETE CASCADE
             ) $charset_collate;",
+            
+            // --- SPRINT 2: LOGISTIK PER JEMAAH ---
+            "CREATE TABLE {$wpdb->prefix}umh_passenger_equipment (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                passenger_id BIGINT NOT NULL,
+                item_id BIGINT NOT NULL,
+                status VARCHAR(20) DEFAULT 'taken', -- taken (diambil), returned (dikembalikan)
+                taken_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                staff_id BIGINT, -- Staff yang menyerahkan barang
+                FOREIGN KEY (passenger_id) REFERENCES {$wpdb->prefix}umh_booking_passengers(id) ON DELETE CASCADE,
+                FOREIGN KEY (item_id) REFERENCES {$wpdb->prefix}umh_inventory_items(id)
+            ) $charset_collate;",
 
-            // [NEW] Attendance
             "CREATE TABLE {$wpdb->prefix}umh_attendance (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 passenger_id BIGINT NOT NULL,
@@ -312,7 +350,6 @@ class DatabaseSchema {
             ) $charset_collate;",
 
             // --- 8. JEMAAH EXPERIENCE ---
-            // [NEW] Progress Tracking
             "CREATE TABLE {$wpdb->prefix}umh_jemaah_progress (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 booking_id BIGINT NOT NULL,
@@ -322,7 +359,6 @@ class DatabaseSchema {
                 FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
             ) $charset_collate;",
 
-            // [NEW] Digital Guides
             "CREATE TABLE {$wpdb->prefix}umh_digital_guides (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 title VARCHAR(255) NOT NULL,
