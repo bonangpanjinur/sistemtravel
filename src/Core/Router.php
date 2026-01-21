@@ -1,70 +1,79 @@
 <?php
-// Path: src/Core/Router.php
 
-namespace UmrahManagement\Core;
+namespace SistemTravel\Core;
 
-class Router {
+class Router
+{
     private $container;
     private $routes;
 
-    public function __construct(Container $container) {
+    public function __construct(Container $container, array $config)
+    {
         $this->container = $container;
-        $this->routes = require plugin_dir_path(dirname(__DIR__)) . 'src/Config/routes.php';
+        // Asumsi config array memiliki key 'admin_menu', sesuaikan dengan struktur routes.php Anda
+        $this->routes = $config['admin_menu'] ?? [];
     }
 
-    /**
-     * Dispatch Admin Menu Page
-     * Dipanggil saat user membuka halaman admin menu.
-     */
-    public function dispatch($pageSlug) {
-        if (!isset($this->routes[$pageSlug])) {
-            echo '<div class="notice notice-error"><p>Halaman tidak ditemukan (Route 404).</p></div>';
-            return;
-        }
+    public function registerRoutes()
+    {
+        foreach ($this->routes as $route) {
+            // 1. Siapkan Callback untuk Menu Utama
+            $mainCallback = $this->resolveCallback($route['callback']);
 
-        $route = $this->routes[$pageSlug];
-        
-        // Cek Capability (Permission)
-        if (isset($route['capability']) && !current_user_can($route['capability'])) {
-            wp_die('Anda tidak memiliki izin untuk mengakses halaman ini.');
-        }
+            // 2. Daftarkan Menu Utama
+            add_menu_page(
+                $route['page_title'],
+                $route['menu_title'],
+                $route['capability'],
+                $route['menu_slug'],
+                $mainCallback,
+                $route['icon_url'] ?? '',
+                $route['position'] ?? null
+            );
 
-        $this->execute($route['controller'], $route['method']);
-    }
+            // 3. Proses Submenu (jika ada)
+            if (isset($route['submenu']) && is_array($route['submenu'])) {
+                foreach ($route['submenu'] as $submenu) {
+                    $submenuCallback = $this->resolveCallback($submenu['callback']);
 
-    /**
-     * Dispatch POST Action (admin-post.php)
-     */
-    public function dispatchAction($action) {
-        if (!isset($this->routes['actions'][$action])) {
-            return; // Action tidak dikenal, biarkan WordPress handle atau ignore
-        }
-
-        $route = $this->routes['actions'][$action];
-        $this->execute($route['controller'], $route['method']);
-    }
-
-    private function execute($controllerClass, $method) {
-        try {
-            // Gunakan Container untuk resolve controller (Auto-wiring dependency)
-            $controller = $this->container->get($controllerClass);
-            
-            if (!method_exists($controller, $method)) {
-                throw new \Exception("Method $method tidak ditemukan di controller $controllerClass");
+                    add_submenu_page(
+                        $route['menu_slug'], // Parent slug
+                        $submenu['page_title'],
+                        $submenu['menu_title'],
+                        $submenu['capability'],
+                        $submenu['menu_slug'],
+                        $submenuCallback
+                    );
+                }
             }
+        }
+    }
 
-            // Panggil method controller
-            $controller->$method();
+    /**
+     * Helper untuk mengubah definisi controller [Class, Method] menjadi Closure yang executable.
+     */
+    private function resolveCallback($callbackConfig)
+    {
+        // Validasi format callback
+        if (!is_array($callbackConfig) || count($callbackConfig) < 2) {
+            return function() { echo "Konfigurasi callback menu salah."; };
+        }
 
-        } catch (\Exception $e) {
-            // Log error menggunakan LoggerService (jika ada) atau error_log standar
-            error_log("Router Error: " . $e->getMessage());
-            
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                wp_die("System Error: " . $e->getMessage());
+        // Return Closure
+        return function () use ($callbackConfig) {
+            $controllerClass = $callbackConfig[0];
+            $method = $callbackConfig[1];
+
+            // Cek apakah class ada di container
+            if ($this->container->has($controllerClass)) {
+                $controller = $this->container->get($controllerClass);
             } else {
-                wp_die("Terjadi kesalahan sistem. Silakan hubungi administrator.");
+                // Fallback: coba instosiasi manual jika tidak terdaftar di container (opsional)
+                $controller = new $controllerClass();
             }
-        }
+
+            // Jalankan method
+            return call_user_func([$controller, $method]);
+        };
     }
 }
