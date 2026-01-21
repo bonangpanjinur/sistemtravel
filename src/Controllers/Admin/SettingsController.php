@@ -27,13 +27,13 @@ class SettingsController {
 
         switch ($tab) {
             case 'agents':
-                echo View::render('admin/agents/list');
+                echo View::render('admin/agents/commissions'); // Fallback to commissions as list is missing
                 break;
             case 'master':
                 echo View::render('admin/master-data');
                 break;
             case 'integrations':
-                echo View::render('admin/integrations/list');
+                echo View::render('admin/integrations/settings');
                 break;
             case 'staff':
             default:

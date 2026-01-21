@@ -11,7 +11,8 @@ class View {
      */
     public static function render($path, $data = []) {
         // Lokasi folder template
-        $templatePath = plugin_dir_path(dirname(__DIR__, 2)) . 'templates/' . $path . '.php';
+        $basePath = defined('TRAVEL_SYS_PATH') ? TRAVEL_SYS_PATH : plugin_dir_path(dirname(__DIR__, 1));
+        $templatePath = $basePath . 'templates/' . $path . '.php';
 
         if (!file_exists($templatePath)) {
             $error_msg = "View template not found: " . esc_html($path);
