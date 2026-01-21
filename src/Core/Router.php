@@ -1,10 +1,6 @@
 <?php
 
-<<<<<<< HEAD
 namespace SistemTravel\Core;
-=======
-namespace App\Core;
->>>>>>> 736e4c5a82545f9e092e1cc8c248432c83970e4f
 
 class Router
 {
@@ -18,7 +14,6 @@ class Router
         $this->routes = $config['admin_menu'] ?? [];
     }
 
-<<<<<<< HEAD
     public function registerRoutes()
     {
         foreach ($this->routes as $route) {
@@ -52,31 +47,6 @@ class Router
                 }
             }
         }
-=======
-    /**
-     * Dispatch Admin Menu Page
-     * Dipanggil saat user membuka halaman admin menu.
-     */
-    public function dispatch($pageSlug) {
-        // Sanitasi page slug
-        $pageSlug = sanitize_text_field($pageSlug);
-
-        if (!isset($this->routes[$pageSlug])) {
-            echo '<div class="notice notice-error"><p>Halaman tidak ditemukan (Route 404).</p></div>';
-            return;
-        }
-
-        $route = $this->routes[$pageSlug];
-        
-        // Cek Capability (Permission)
-        $capability = $route['capability'] ?? 'manage_options';
-        if (!current_user_can($capability)) {
-            wp_die('Anda tidak memiliki izin untuk mengakses halaman ini.');
-        }
-
-        $method = $route['method'] ?? 'index';
-        $this->execute($route['controller'], $method);
->>>>>>> 736e4c5a82545f9e092e1cc8c248432c83970e4f
     }
 
     /**
