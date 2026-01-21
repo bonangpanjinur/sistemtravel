@@ -1,34 +1,18 @@
 <?php
-// File: jemaah-dashboard.php
-// Location: templates/frontend/jemaah-dashboard.php
+// templates/frontend/jemaah-dashboard.php
 
-/** @var object $user */
-/** @var array $bookings */
+/**
+ * Template: Dashboard Jemaah (Refactored)
+ * * Data yang tersedia dari Controller:
+ * @var WP_User $user
+ * @var array $bookings (Array of Objects, sudah inject ->passengers & ->payments)
+ * @var array $company_accounts
+ * @var object|null $activeBooking
+ * @var array $timeline
+ * @var array $guides
+ */
 
-// Helper: Ambil Riwayat Pembayaran per Booking
-function get_payment_history($booking_id) {
-    global $wpdb;
-    return $wpdb->get_results($wpdb->prepare(
-        "SELECT * FROM {$wpdb->prefix}umh_payments WHERE booking_id = %d ORDER BY created_at DESC", 
-        $booking_id
-    ));
-}
-
-// Helper: Ambil Data Rekening Bank Perusahaan
-function get_company_accounts() {
-    global $wpdb;
-    return $wpdb->get_results("SELECT * FROM {$wpdb->prefix}umh_bank_accounts WHERE is_active = 1");
-}
-$company_accounts = get_company_accounts();
-
-// Helper untuk mengambil penumpang per booking
-function get_booking_passengers($booking_id) {
-    global $wpdb;
-    return $wpdb->get_results($wpdb->prepare(
-        "SELECT * FROM {$wpdb->prefix}umh_booking_passengers WHERE booking_id = %d", 
-        $booking_id
-    ));
-}
+if (!defined('ABSPATH')) exit;
 ?>
 
 <div class="umh-dashboard-container">
@@ -47,9 +31,10 @@ function get_booking_passengers($booking_id) {
         .badge-pending { background: #fffaf0; color: #c05621; border: 1px solid #fbd38d; }
         .badge-paid { background: #f0fff4; color: #2f855a; border: 1px solid #9ae6b4; }
         .badge-pending_verification { background: #ebf8ff; color: #2b6cb0; border: 1px solid #bee3f8; }
-        .badge-canceled { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
+        .badge-cancelled { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
         .status-badge.status-pending { background: #fffaf0; color: #c05621; border: 1px solid #fbd38d; } 
         .status-badge.status-paid { background: #f0fff4; color: #2f855a; border: 1px solid #9ae6b4; } 
+        .status-badge.status-verified { background: #f0fff4; color: #2f855a; border: 1px solid #9ae6b4; }
         
         /* Payment Section */
         .umh-bank-list { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
@@ -92,12 +77,11 @@ function get_booking_passengers($booking_id) {
              <span style="display:block; font-size:0.9rem; color:#718096;">Member ID</span>
              <strong style="font-size:1.2rem;"><?php echo esc_html($user->user_email); ?></strong>
              <br>
-             <!-- Shortcode ID Card Digital -->
              <a href="#" onclick="alert('Fitur ID Card Digital ada di menu profil (Coming Soon)')" style="font-size:0.8rem; color:#2271b1;">[ Lihat ID Card ]</a>
         </div>
     </div>
 
-    <!-- Alert Sukses Upload -->
+    <!-- Alert Status -->
     <?php if (isset($_GET['payment_status']) && $_GET['payment_status'] == 'submitted'): ?>
         <div style="background:#f0fff4; border:1px solid #9ae6b4; color:#2f855a; padding:15px; margin-bottom:20px; border-radius:6px;">
             ✅ Bukti pembayaran berhasil dikirim. Menunggu verifikasi admin.
@@ -114,8 +98,8 @@ function get_booking_passengers($booking_id) {
     <?php if (!empty($bookings)): foreach ($bookings as $bk): ?>
         <div class="umh-booking-card">
             <div class="umh-card-header">
-                <span class="umh-booking-id">BOOKING #<?php echo $bk->id; ?></span>
-                <span class="status-badge badge-<?php echo $bk->status; ?>"><?php echo strtoupper($bk->status); ?></span>
+                <span class="umh-booking-id">BOOKING #<?php echo esc_html($bk->code ?? $bk->id); ?></span>
+                <span class="status-badge badge-<?php echo esc_attr($bk->status); ?>"><?php echo strtoupper($bk->status); ?></span>
             </div>
             <div class="umh-card-body">
                 <!-- Info Paket Grid -->
@@ -126,7 +110,7 @@ function get_booking_passengers($booking_id) {
                     </div>
                     <div>
                         <span class="umh-info-label">Keberangkatan</span>
-                        <span class="umh-info-value"><?php echo date('d M Y', strtotime($bk->departure_date)); ?></span>
+                        <span class="umh-info-value"><?php echo date_i18n('d M Y', strtotime($bk->departure_date)); ?></span>
                     </div>
                     <div>
                         <span class="umh-info-label">Total Tagihan</span>
@@ -142,8 +126,8 @@ function get_booking_passengers($booking_id) {
                 <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
                 <h4 style="margin-top:0; color:#2c5282;">💳 Status & Konfirmasi Pembayaran</h4>
 
-                <!-- 1. Daftar Rekening -->
-                <?php if ($bk->status == 'pending'): ?>
+                <!-- 1. Daftar Rekening (Jika status pending/partial) -->
+                <?php if ($bk->status == 'pending' || $bk->status == 'waiting_payment'): ?>
                     <div style="background:#eef; padding:15px; border-radius:6px; margin-bottom:20px;">
                         <p style="margin-top:0; font-weight:bold;">Silakan transfer ke salah satu rekening berikut:</p>
                         <div class="umh-bank-list">
@@ -156,11 +140,18 @@ function get_booking_passengers($booking_id) {
                             <?php endforeach; ?>
                         </div>
                         <button class="umh-btn btn-primary btn-pay-confirm" data-id="<?php echo $bk->id; ?>">+ Konfirmasi Pembayaran (Upload Bukti)</button>
+                        
+                        <?php if (get_option('umh_payment_gateway_mode') == '1'): ?>
+                           <a href="<?php echo home_url('/payment?id=' . $bk->id); ?>" class="umh-btn umh-btn-action" style="margin-left:10px;">Bayar Online (Midtrans)</a>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
 
-                <!-- 2. Riwayat Pembayaran -->
-                <?php $payments = get_payment_history($bk->id); ?>
+                <!-- 2. Riwayat Pembayaran (Data Diambil dari Controller->Object) -->
+                <?php 
+                // REFACTOR: Menggunakan data yang sudah di-inject di Controller
+                $payments = $bk->payments ?? []; 
+                ?>
                 <?php if (!empty($payments)): ?>
                     <table class="umh-payment-history">
                         <thead>
@@ -175,17 +166,17 @@ function get_booking_passengers($booking_id) {
                             <?php 
                             $total_paid = 0;
                             foreach ($payments as $pay): 
-                                if($pay->status == 'verified') $total_paid += $pay->amount;
+                                if($pay->status == 'verified' || $pay->status == 'settlement') $total_paid += $pay->amount;
                             ?>
                                 <tr>
-                                    <td><?php echo date('d/m/Y H:i', strtotime($pay->created_at)); ?></td>
+                                    <td><?php echo date_i18n('d/m/Y H:i', strtotime($pay->created_at)); ?></td>
                                     <td>Rp <?php echo number_format($pay->amount, 0, ',', '.'); ?></td>
                                     <td>
-                                        <span class="status-badge badge-<?php echo $pay->status; ?>">
+                                        <span class="status-badge badge-<?php echo esc_attr($pay->status); ?>">
                                             <?php echo ($pay->status == 'pending_verification') ? 'Diperiksa' : ucfirst($pay->status); ?>
                                         </span>
                                     </td>
-                                    <td><?php echo esc_html($pay->bank_target); ?></td>
+                                    <td><?php echo esc_html($pay->bank_target ?? $pay->payment_method ?? '-'); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -214,10 +205,10 @@ function get_booking_passengers($booking_id) {
                         </thead>
                         <tbody>
                             <?php 
-                                $passengers = get_booking_passengers($bk->id);
+                                // REFACTOR: Menggunakan data yang sudah di-inject di Controller
+                                $passengers = $bk->passengers ?? [];
                                 if (!empty($passengers)): 
                                     foreach ($passengers as $pax):
-                                        // Cek kolom passport_file_url
                                         $has_passport = !empty($pax->passport_file_url); 
                             ?>
                                 <tr>
@@ -249,15 +240,12 @@ function get_booking_passengers($booking_id) {
 
                 <div style="text-align: right; margin-top:20px;">
                     <?php if ($bk->status == 'paid' || $bk->status == 'completed' || $bk->status == 'confirmed'): ?>
-                        <a href="#" class="umh-btn-outline">Download Invoice</a>
+                        <a href="<?php echo home_url('/?umh_action=print_invoice&id='.$bk->id); ?>" target="_blank" class="umh-btn-outline">Download Invoice</a>
                         <a href="#" class="umh-btn-action">Unduh Tiket</a>
                         <?php
                         // Tombol Sertifikat (Hanya jika Paid/Completed)
-                        global $wpdb;
-                        $pax_list = $wpdb->get_results("SELECT id FROM {$wpdb->prefix}umh_booking_passengers WHERE booking_id = {$bk->id}");
-                        
-                        if($pax_list) {
-                            foreach($pax_list as $p) {
+                        if(!empty($passengers)) {
+                            foreach($passengers as $p) {
                                 echo '<a href="'.admin_url('admin-post.php?action=umh_download_certificate&booking_id='.$bk->id.'&pax_id='.$p->id).'" target="_blank" class="umh-btn-outline" style="margin-left:5px;">🏅 Sertifikat</a>';
                             }
                         }
