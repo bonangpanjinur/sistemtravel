@@ -2,7 +2,7 @@
 // Folder: src/Services/
 // File: AgentService.php
 
-namespace UmhMgmt\Services;
+namespace App\Services;
 
 class AgentService {
     private $wpdb;

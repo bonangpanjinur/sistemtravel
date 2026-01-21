@@ -1,10 +1,10 @@
 <?php
 // Path: src/Controllers/Admin/DashboardController.php
 
-namespace UmrahManagement\Controllers\Admin; // PENTING: Namespace harus ini
+namespace App\Controllers\Admin;
 
-use UmrahManagement\Repositories\DashboardRepository;
-use UmrahManagement\Utils\View;
+use App\Repositories\DashboardRepository;
+use App\Utils\View;
 
 class DashboardController {
     private $dashboardRepo;

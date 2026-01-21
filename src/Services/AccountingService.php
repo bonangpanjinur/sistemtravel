@@ -2,7 +2,7 @@
 // Folder: src/Services/
 // File: AccountingService.php
 
-namespace UmhMgmt\Services;
+namespace App\Services;
 
 class AccountingService {
     private $wpdb;

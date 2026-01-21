@@ -1,10 +1,10 @@
 <?php
 // Path: src/Controllers/Admin/CRMController.php
 
-namespace UmrahManagement\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmrahManagement\Repositories\CRMRepository;
-use UmrahManagement\Utils\View;
+use App\Repositories\CRMRepository;
+use App\Utils\View;
 
 class CRMController {
     private $crmRepo;

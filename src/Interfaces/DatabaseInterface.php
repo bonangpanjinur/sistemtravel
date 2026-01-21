@@ -1,7 +1,7 @@
 <?php
 // Path: src/Interfaces/DatabaseInterface.php
 
-namespace UmrahManagement\Interfaces;
+namespace App\Interfaces;
 
 interface DatabaseInterface {
     /**

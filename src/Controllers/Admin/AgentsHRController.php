@@ -2,10 +2,10 @@
 // Folder: src/Controllers/Admin/
 // File: AgentsHRController.php
 
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Utils\View;
-use UmhMgmt\Config\Constants;
+use App\Utils\View;
+use App\Config\Constants;
 
 class AgentsHRController {
     public function __construct() {

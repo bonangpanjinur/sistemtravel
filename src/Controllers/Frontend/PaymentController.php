@@ -2,9 +2,9 @@
 // File: PaymentController.php
 // Location: src/Controllers/Frontend/PaymentController.php
 
-namespace UmhMgmt\Controllers\Frontend;
+namespace App\Controllers\Frontend;
 
-use UmhMgmt\Services\AuditLogService;
+use App\Services\AuditLogService;
 
 class PaymentController {
 

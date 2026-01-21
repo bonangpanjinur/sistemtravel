@@ -1,7 +1,7 @@
 <?php
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Utils\View;
+use App\Utils\View;
 
 class SavingsController {
     public function __construct() {

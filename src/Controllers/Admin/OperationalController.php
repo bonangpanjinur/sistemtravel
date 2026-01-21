@@ -1,38 +1,45 @@
 <?php
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Utils\View;
-use UmhMgmt\Repositories\OperationalRepository;
+use App\Utils\View;
+use App\Repositories\OperationalRepository;
 
 class OperationalController {
     private $repo;
 
-    public function __construct() {
-        $this->repo = new OperationalRepository();
-        add_action('admin_menu', [$this, 'add_submenu_page']);
+    public function __construct(OperationalRepository $repo) {
+        $this->repo = $repo;
     }
 
-    public function add_submenu_page() {
-        add_submenu_page(
-            'umh-dashboard',
-            'Operational',
-            'Operational',
-            'manage_options',
-            'umh-operational',
-            [$this, 'render_page']
-        );
-    }
+    public function index() {
+        $tab = $_GET['tab'] ?? 'departures';
 
-    public function render_page() {
-        $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'rooming';
-        $data = ['active_tab' => $active_tab];
+        $tabs = [
+            ['id' => 'departures', 'label' => 'Keberangkatan', 'url' => admin_url('admin.php?page=travel-sys-ops&tab=departures')],
+            ['id' => 'jemaah', 'label' => 'Jamaah', 'url' => admin_url('admin.php?page=travel-sys-ops&tab=jemaah')],
+            ['id' => 'manifest', 'label' => 'Manifest', 'url' => admin_url('admin.php?page=travel-sys-ops&tab=manifest')],
+            ['id' => 'inventory', 'label' => 'Inventory', 'url' => admin_url('admin.php?page=travel-sys-ops&tab=inventory')],
+        ];
 
-        if ($active_tab === 'rooming') {
-            $data['departures'] = $this->repo->getUpcomingDepartures();
-        } elseif ($active_tab === 'logistics') {
-            $data['inventory'] = $this->repo->getInventoryItems();
+        echo '<div class="wrap">';
+        echo '<h1>Operasional</h1>';
+        View::renderTabs($tabs, $tab);
+
+        switch ($tab) {
+            case 'jemaah':
+                echo View::render('admin/jemaah/list');
+                break;
+            case 'manifest':
+                echo View::render('admin/manifest/list');
+                break;
+            case 'inventory':
+                echo View::render('admin/inventory/list');
+                break;
+            case 'departures':
+            default:
+                echo View::render('admin/departures/list');
+                break;
         }
-
-        View::render('admin/operational', $data);
+        echo '</div>';
     }
 }

@@ -2,10 +2,10 @@
 // Folder: src/Services/
 // File: BookingService.php
 
-namespace UmhMgmt\Services;
+namespace App\Services;
 
-use UmhMgmt\Repositories\BookingRepository;
-use UmhMgmt\Repositories\PackageRepository;
+use App\Repositories\BookingRepository;
+use App\Repositories\PackageRepository;
 use Exception;
 
 class BookingService {

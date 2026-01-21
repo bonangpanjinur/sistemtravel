@@ -1,13 +1,13 @@
 <?php
 
-namespace UmhMgmt\Core;
+namespace App\Core;
 
 /**
  * Class DB
  * * Wrapper sederhana untuk WordPress database ($wpdb).
  * Berfungsi sebagai Query Builder untuk menghindari penulisan raw SQL manual
  * dan memastikan semua query melewati proses prepare (sanitasi) otomatis.
- * * @package UmhMgmt\Core
+ * * @package App\Core
  */
 class DB {
     private $table;

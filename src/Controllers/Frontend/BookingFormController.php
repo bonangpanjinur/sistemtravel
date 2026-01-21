@@ -1,13 +1,13 @@
 <?php
 // Path: src/Controllers/Frontend/BookingFormController.php
 
-namespace UmrahManagement\Controllers\Frontend;
+namespace App\Controllers\Frontend;
 
-use UmrahManagement\Repositories\BookingRepository;
-use UmrahManagement\Repositories\PackageRepository;
-use UmrahManagement\Interfaces\DatabaseInterface;
-use UmrahManagement\Utils\View;
-use UmrahManagement\Utils\Validator;
+use App\Repositories\BookingRepository;
+use App\Repositories\PackageRepository;
+use App\Interfaces\DatabaseInterface;
+use App\Utils\View;
+use App\Utils\Validator;
 use Exception;
 
 class BookingFormController {

@@ -1,9 +1,9 @@
 <?php
 // Path: src/Repositories/DashboardRepository.php
 
-namespace UmrahManagement\Repositories;
+namespace App\Repositories;
 
-use UmrahManagement\Interfaces\DatabaseInterface;
+use App\Interfaces\DatabaseInterface;
 
 class DashboardRepository {
     private $db;

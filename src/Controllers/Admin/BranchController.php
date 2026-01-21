@@ -2,9 +2,9 @@
 // File: BranchController.php
 // Location: src/Controllers/Admin/BranchController.php
 
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Utils\View;
+use App\Utils\View;
 
 class BranchController {
 

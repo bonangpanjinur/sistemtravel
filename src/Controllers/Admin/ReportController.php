@@ -2,10 +2,10 @@
 // File: ReportController.php
 // Location: src/Controllers/Admin/ReportController.php
 
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Utils\View;
-use UmhMgmt\Utils\BranchScopeTrait;
+use App\Utils\View;
+use App\Utils\BranchScopeTrait;
 
 class ReportController {
     use BranchScopeTrait;

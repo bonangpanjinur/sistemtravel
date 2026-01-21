@@ -2,9 +2,9 @@
 // File: IntegrationController.php
 // Location: src/Controllers/Admin/IntegrationController.php
 
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Utils\View;
+use App\Utils\View;
 
 class IntegrationController {
 

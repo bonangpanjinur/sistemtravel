@@ -1,13 +1,13 @@
 <?php
 // Path: src/Providers/FrontendServiceProvider.php
 
-namespace UmrahManagement\Providers;
+namespace App\Providers;
 
-use UmrahManagement\Core\Container;
-use UmrahManagement\Controllers\Frontend\BookingFormController;
-use UmrahManagement\Controllers\Frontend\PackageCatalogController;
-use UmrahManagement\Controllers\Frontend\JemaahDashboardController;
-use UmrahManagement\Controllers\Api\PackageApiController;
+use App\Core\Container;
+use App\Controllers\Frontend\BookingFormController;
+use App\Controllers\Frontend\PackageCatalogController;
+use App\Controllers\Frontend\JemaahDashboardController;
+use App\Controllers\Api\PackageApiController;
 
 class FrontendServiceProvider {
     private $container;
@@ -17,6 +17,10 @@ class FrontendServiceProvider {
     }
 
     public function register() {
+        // Tempat registrasi binding container jika perlu
+    }
+
+    public function boot() {
         // Registrasi Shortcode
         add_shortcode('umroh_booking_form', [$this, 'renderBookingForm']);
         // Mengembalikan shortcode yang sebelumnya hilang

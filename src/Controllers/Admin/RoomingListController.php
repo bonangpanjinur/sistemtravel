@@ -2,9 +2,9 @@
 // Folder: src/Controllers/Admin/
 // File: RoomingListController.php
 
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Utils\View;
+use App\Utils\View;
 
 class RoomingListController {
     private $wpdb;

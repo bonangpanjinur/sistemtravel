@@ -2,9 +2,9 @@
 // File: AgentDashboardController.php
 // Location: src/Controllers/Frontend/AgentDashboardController.php
 
-namespace UmhMgmt\Controllers\Frontend;
+namespace App\Controllers\Frontend;
 
-use UmhMgmt\Utils\View;
+use App\Utils\View;
 
 class AgentDashboardController {
 

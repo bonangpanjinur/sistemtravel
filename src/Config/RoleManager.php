@@ -2,7 +2,7 @@
 // File: RoleManager.php
 // Location: src/Config/RoleManager.php
 
-namespace UmhMgmt\Config;
+namespace App\Config;
 
 class RoleManager {
 

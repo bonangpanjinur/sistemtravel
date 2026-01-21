@@ -2,7 +2,7 @@
 // Folder: src/Services/
 // File: JemaahAppService.php
 
-namespace UmhMgmt\Services;
+namespace App\Services;
 
 class JemaahAppService {
     private $wpdb;

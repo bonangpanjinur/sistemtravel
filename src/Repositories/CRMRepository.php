@@ -1,9 +1,9 @@
 <?php
 // Path: src/Repositories/CRMRepository.php
 
-namespace UmrahManagement\Repositories;
+namespace App\Repositories;
 
-use UmrahManagement\Interfaces\DatabaseInterface;
+use App\Interfaces\DatabaseInterface;
 
 class CRMRepository {
     private $db;

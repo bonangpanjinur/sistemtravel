@@ -1,9 +1,9 @@
 <?php
 // Path: src/Controllers/Api/PackageApiController.php
 
-namespace UmrahManagement\Controllers\Api;
+namespace App\Controllers\Api;
 
-use UmrahManagement\Repositories\PackageRepository;
+use App\Repositories\PackageRepository;
 use WP_REST_Request;
 use WP_REST_Response;
 

@@ -1,10 +1,10 @@
 <?php
 // src/Services/PaymentFactory.php
 
-namespace UmhMgmt\Services;
+namespace App\Services;
 
-use UmhMgmt\Services\Payment\MidtransGateway;
-// use UmhMgmt\Services\Payment\XenditGateway; // Nanti tinggal tambah ini
+use App\Services\Payment\MidtransGateway;
+// use App\Services\Payment\XenditGateway; // Nanti tinggal tambah ini
 
 /**
  * Class PaymentFactory

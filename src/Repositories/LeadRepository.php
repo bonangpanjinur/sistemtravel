@@ -1,9 +1,9 @@
 <?php
 // Path: src/Repositories/LeadRepository.php
 
-namespace UmrahManagement\Repositories;
+namespace App\Repositories;
 
-use UmrahManagement\Interfaces\DatabaseInterface;
+use App\Interfaces\DatabaseInterface;
 
 class LeadRepository {
     private $db;

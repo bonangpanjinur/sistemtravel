@@ -2,7 +2,7 @@
 // File: BranchScopeTrait.php
 // Location: src/Utils/BranchScopeTrait.php
 
-namespace UmhMgmt\Utils;
+namespace App\Utils;
 
 trait BranchScopeTrait {
 
