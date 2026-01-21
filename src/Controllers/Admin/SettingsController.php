@@ -13,10 +13,10 @@ class SettingsController {
     }
 
     public function registerMenu() {
-        // Tambahkan submenu di bawah menu utama plugin "Travel Management"
-        // Asumsi slug parent menu utama adalah 'umroh-management'
+        // PERBAIKAN: Slug parent diganti dari 'umroh-management' menjadi 'umh-dashboard'
+        // agar sesuai dengan menu utama yang dibuat di DashboardController.
         add_submenu_page(
-            'umroh-management', 
+            'umh-dashboard', 
             'Pengaturan Sistem', 
             'Pengaturan', 
             'manage_options', 
