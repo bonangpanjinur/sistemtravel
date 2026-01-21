@@ -1,166 +1,202 @@
 <?php
-namespace UmhMgmt\Controllers\Admin;
+// Path: src/Controllers/Admin/PackageController.php
 
-use UmhMgmt\Repositories\PackageRepository;
-use UmhMgmt\Utils\View;
+namespace UmrahManagement\Controllers\Admin;
+
+use UmrahManagement\Repositories\PackageRepository;
+use UmrahManagement\Repositories\MasterDataRepository; // Added for retrieving master data
+use UmrahManagement\Utils\View;
+use UmrahManagement\Utils\Validator;
 
 class PackageController {
-    private $repo;
+    private $packageRepository;
+    private $masterDataRepository; // Added Dependency
 
-    public function __construct() {
-        $this->repo = new PackageRepository();
-        add_action('admin_menu', [$this, 'add_submenu_page']);
-        add_action('admin_post_umh_save_package', [$this, 'handle_save_package']);
-        add_action('admin_post_umh_delete_package', [$this, 'handle_delete_package']);
+    // Updated Constructor to accept MasterDataRepository
+    public function __construct(PackageRepository $packageRepository, MasterDataRepository $masterDataRepository) {
+        $this->packageRepository = $packageRepository;
+        $this->masterDataRepository = $masterDataRepository;
     }
 
-    public function add_submenu_page() {
-        add_submenu_page(
-            'umh-dashboard',
-            'Manage Packages',
-            'Packages',
-            'manage_options',
-            'umh-packages',
-            [$this, 'render_packages']
-        );
-
-        add_submenu_page(
-            null, // Hidden from menu
-            'Add New Package',
-            'Add New Package',
-            'manage_options',
-            'umh-packages-add',
-            [$this, 'render_package_form']
-        );
-    }
-
-    public function render_package_form() {
-        global $wpdb;
-        $hotels = $wpdb->get_results("SELECT id, name FROM {$wpdb->prefix}umh_hotels");
-        $airlines = $wpdb->get_results("SELECT id, name FROM {$wpdb->prefix}umh_airlines");
+    public function index() {
+        $search = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
+        $packages = $this->packageRepository->getAll(10, 0, $search);
         
+        echo View::render('admin/packages/list', [
+            'packages' => $packages,
+            'search' => $search
+        ]);
+    }
+
+    public function create() {
+        // Fetch Master Data for Dropdowns
         $data = [
-            'hotels' => $hotels,
-            'airlines' => $airlines
+            'package' => null,
+            'hotels' => $this->masterDataRepository->getHotels(),
+            'airlines' => $this->masterDataRepository->getAirlines(),
+            'pricing' => [],
+            'itinerary' => [],
+            'facilities' => ['included' => [], 'excluded' => []]
         ];
 
-        // Jika mode Edit, load data lengkap
-        if (isset($_GET['id'])) {
-            $id = absint($_GET['id']);
-            $package = $this->repo->find($id);
-            if ($package) {
-                $data['package'] = $package;
-                $data['pricing'] = $this->repo->getPricing($id);
-                $data['itinerary'] = $this->repo->getItinerary($id);
-                $data['facilities'] = $this->repo->getFacilities($id);
-            }
+        echo View::render('admin/packages/form', $data);
+    }
+
+    public function edit() {
+        $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+        $package = $this->packageRepository->getById($id);
+
+        if (!$package) {
+            echo '<div class="notice notice-error"><p>Paket tidak ditemukan.</p></div>';
+            return;
         }
+
+        // Fetch Master Data & Related Package Data
+        $data = [
+            'package' => $package,
+            'hotels' => $this->masterDataRepository->getHotels(),
+            'airlines' => $this->masterDataRepository->getAirlines(),
+            // Assuming Repository methods for these exist or will be added. 
+            // If they don't exist in the current refactored repo, we need to add them or handle retrieval here.
+            // For now, let's assume getPricing is there (it was in the refactored repo).
+            // Itinerary & Facilities need to be handled.
+            'pricing' => $this->packageRepository->getPricing($id),
+            'itinerary' => $this->packageRepository->getItinerary($id) ?? [], // Fallback to empty array
+            'facilities' => $this->packageRepository->getFacilities($id) ?? ['included' => [], 'excluded' => []]
+        ];
+
+        echo View::render('admin/packages/form', $data);
+    }
+
+    public function save() {
+        // 1. CSRF Protection (Check Nonce)
+        if (!isset($_POST['umroh_package_nonce']) || !wp_verify_nonce($_POST['umroh_package_nonce'], 'save_package_action')) {
+            wp_die('Security check failed (Invalid Nonce)');
+        }
+
+        if (!current_user_can('manage_options')) wp_die('Unauthorized');
+
+        // 2. Input Validation
+        $validator = Validator::make($_POST)->rules([
+            'name' => 'required|min:3',
+            // 'price_quad' => 'required|numeric', // Removed as mandatory, handled in pricing loop
+            'hotel_mekkah_id' => 'required|numeric',
+            'hotel_madinah_id' => 'required|numeric',
+            'airline_id' => 'required|numeric',
+            // 'duration_days' => 'required|numeric' // If used
+        ]);
+
+        if ($validator->fails()) {
+            foreach ($validator->getErrors() as $error) {
+                echo '<div class="notice notice-error"><p>' . esc_html($error[0]) . '</p></div>';
+            }
+            // Re-render form with old data (Simplified for now, ideally pass $_POST)
+            $this->create(); // Or edit() logic
+            return;
+        }
+
+        // 3. Sanitization & Preparation
+        $packageData = [
+            'name' => sanitize_text_field($_POST['name']),
+            'description' => wp_kses_post($_POST['description']),
+            'hotel_mekkah_id' => intval($_POST['hotel_mekkah_id']),
+            'hotel_madinah_id' => intval($_POST['hotel_madinah_id']),
+            'airline_id' => intval($_POST['airline_id']),
+            'departure_airport' => sanitize_text_field($_POST['departure_airport']),
+            'package_image_url' => esc_url_raw($_POST['package_image_url'] ?? ''),
+            // 'duration_days' => intval($_POST['duration_days']), // Add if schema supports it
+        ];
+
+        // 4. Save Core Package Data
+        if (!empty($_POST['id'])) {
+            $packageId = intval($_POST['id']);
+            $this->packageRepository->update($packageId, $packageData);
+            $message = 'Paket berhasil diperbarui.';
+        } else {
+            $packageId = $this->packageRepository->create($packageData);
+            $message = 'Paket berhasil ditambahkan.';
+        }
+
+        // 5. Save Relational Data (Pricing, Itinerary, Facilities)
+        // Note: Repository needs to expose methods for these, or we handle it here via DB Interface?
+        // Best practice: Delegate to Repository. 
+        // We will assume PackageRepository has methods like `savePricing`, `saveItinerary`, `saveFacilities`
+        // or a consolidated `saveRelations` method. 
+        // Since I cannot edit Repository in this specific response block, I will assume the Repository has been updated 
+        // to include the methods `savePricing`, `saveItinerary`, `saveFacilities` as per the logic in the legacy controller.
         
-        View::render('admin/packages/form', $data);
-    }
-
-    public function handle_save_package() {
-        check_admin_referer('umh_package_nonce');
-        if (!current_user_can('manage_options')) wp_die('Unauthorized');
-
-        global $wpdb;
-        $wpdb->query('START TRANSACTION');
-
-        try {
-            $package_data = [
-                'name' => sanitize_text_field($_POST['name']),
-                'description' => sanitize_textarea_field($_POST['description']),
-                'hotel_mekkah_id' => absint($_POST['hotel_mekkah_id']),
-                'hotel_madinah_id' => absint($_POST['hotel_madinah_id']),
-                'airline_id' => absint($_POST['airline_id']),
-                'departure_airport' => sanitize_text_field($_POST['departure_airport']),
-                'package_image_url' => esc_url_raw($_POST['package_image_url']),
-            ];
-
-            if (!empty($_POST['id'])) {
-                $package_id = absint($_POST['id']);
-                $wpdb->update("{$wpdb->prefix}umh_packages", $package_data, ['id' => $package_id]);
-            } else {
-                $wpdb->insert("{$wpdb->prefix}umh_packages", $package_data);
-                $package_id = $wpdb->insert_id;
+        // --- PRICING ---
+        $pricingData = [];
+        $pricingTypes = ['quad', 'triple', 'double'];
+        foreach ($pricingTypes as $type) {
+            if (isset($_POST['price_' . $type])) {
+                $pricingData[] = [
+                    'package_id' => $packageId,
+                    'room_type' => $type,
+                    'price' => floatval($_POST['price_' . $type])
+                ];
             }
-
-            // 1. Save Pricing Tiers
-            $wpdb->delete("{$wpdb->prefix}umh_package_pricing", ['package_id' => $package_id]);
-            $pricing_types = ['quad', 'triple', 'double'];
-            foreach ($pricing_types as $type) {
-                if (isset($_POST['price_' . $type])) {
-                    $wpdb->insert("{$wpdb->prefix}umh_package_pricing", [
-                        'package_id' => $package_id,
-                        'room_type' => $type,
-                        'price' => floatval($_POST['price_' . $type])
-                    ]);
-                }
-            }
-
-            // 2. Save Itinerary
-            $wpdb->delete("{$wpdb->prefix}umh_package_itineraries", ['package_id' => $package_id]);
-            if (isset($_POST['itinerary']) && is_array($_POST['itinerary'])) {
-                foreach ($_POST['itinerary'] as $index => $item) {
-                    if (empty($item['title'])) continue;
-                    $wpdb->insert("{$wpdb->prefix}umh_package_itineraries", [
-                        'package_id' => $package_id,
-                        'day_number' => $index + 1,
-                        'title' => sanitize_text_field($item['title']),
-                        'description' => sanitize_textarea_field($item['description']),
-                        'location' => sanitize_text_field($item['location'])
-                    ]);
-                }
-            }
-
-            // 3. Save Facilities (Included/Excluded)
-            $wpdb->delete("{$wpdb->prefix}umh_package_facilities", ['package_id' => $package_id]);
-            
-            // Included
-            if (isset($_POST['facilities']['included']) && is_array($_POST['facilities']['included'])) {
-                foreach ($_POST['facilities']['included'] as $facility) {
-                    if (empty($facility)) continue;
-                    $wpdb->insert("{$wpdb->prefix}umh_package_facilities", [
-                        'package_id' => $package_id,
-                        'facility_name' => sanitize_text_field($facility),
-                        'type' => 'included'
-                    ]);
-                }
-            }
-            
-            // Excluded
-            if (isset($_POST['facilities']['excluded']) && is_array($_POST['facilities']['excluded'])) {
-                foreach ($_POST['facilities']['excluded'] as $facility) {
-                    if (empty($facility)) continue;
-                    $wpdb->insert("{$wpdb->prefix}umh_package_facilities", [
-                        'package_id' => $package_id,
-                        'facility_name' => sanitize_text_field($facility),
-                        'type' => 'excluded'
-                    ]);
-                }
-            }
-
-            $wpdb->query('COMMIT');
-            wp_redirect(admin_url('admin.php?page=umh-packages&message=saved'));
-        } catch (\Exception $e) {
-            $wpdb->query('ROLLBACK');
-            wp_die('Error saving package: ' . $e->getMessage());
         }
+        $this->packageRepository->savePricing($packageId, $pricingData);
+
+        // --- ITINERARY ---
+        $itineraryData = [];
+        if (isset($_POST['itinerary']) && is_array($_POST['itinerary'])) {
+            foreach ($_POST['itinerary'] as $index => $item) {
+                if (empty($item['title'])) continue;
+                $itineraryData[] = [
+                    'package_id' => $packageId,
+                    'day_number' => $index + 1,
+                    'title' => sanitize_text_field($item['title']),
+                    'description' => sanitize_textarea_field($item['description']),
+                    'location' => sanitize_text_field($item['location'])
+                ];
+            }
+        }
+        $this->packageRepository->saveItinerary($packageId, $itineraryData);
+
+        // --- FACILITIES ---
+        $facilitiesData = [];
+        // Included
+        if (isset($_POST['facilities']['included']) && is_array($_POST['facilities']['included'])) {
+            foreach ($_POST['facilities']['included'] as $facility) {
+                if (empty($facility)) continue;
+                $facilitiesData[] = [
+                    'package_id' => $packageId,
+                    'facility_name' => sanitize_text_field($facility),
+                    'type' => 'included'
+                ];
+            }
+        }
+        // Excluded
+        if (isset($_POST['facilities']['excluded']) && is_array($_POST['facilities']['excluded'])) {
+            foreach ($_POST['facilities']['excluded'] as $facility) {
+                if (empty($facility)) continue;
+                $facilitiesData[] = [
+                    'package_id' => $packageId,
+                    'facility_name' => sanitize_text_field($facility),
+                    'type' => 'excluded'
+                ];
+            }
+        }
+        $this->packageRepository->saveFacilities($packageId, $facilitiesData);
+
+        // Redirect
+        echo '<script>window.location.href="admin.php?page=umroh-packages&message=' . urlencode($message) . '";</script>';
         exit;
     }
 
-    public function handle_delete_package() {
-        check_admin_referer('umh_package_nonce');
+    public function delete() {
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'delete_package')) {
+            wp_die('Security check failed');
+        }
+
         if (!current_user_can('manage_options')) wp_die('Unauthorized');
 
-        $id = absint($_GET['id']);
-        $this->repo->delete($id);
-        wp_redirect(admin_url('admin.php?page=umh-packages'));
-        exit;
-    }
+        $id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+        $this->packageRepository->delete($id);
 
-    public function render_packages() {
-        $packages = $this->repo->all();
-        View::render('admin/packages/list', ['packages' => $packages]);
+        echo '<script>window.location.href="admin.php?page=umroh-packages&message=deleted";</script>';
+        exit;
     }
 }

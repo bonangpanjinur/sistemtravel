@@ -1,38 +1,51 @@
 <?php
-// Folder: sistemtravel/src/Utils/
-// File: View.php
+// Path: src/Utils/View.php
 
-namespace UmhMgmt\Utils;
+namespace UmrahManagement\Utils;
 
 class View {
     /**
-     * Render template dengan dukungan Theme Override.
-     * Urutan prioritas:
-     * 1. Folder Theme: /wp-content/themes/temaumroh/umroh-templates/{file}.php
-     * 2. Folder Plugin: /wp-content/plugins/sistemtravel/templates/{file}.php
+     * Render template dengan data.
+     * @param string $path Path relatif terhadap folder templates (misal: 'admin/packages/index')
+     * @param array $data Data yang akan dikirim ke view
      */
-    public static function render($template, $data = []) {
-        extract($data);
+    public static function render($path, $data = []) {
+        // Lokasi folder template
+        $templatePath = plugin_dir_path(dirname(__DIR__, 2)) . 'templates/' . $path . '.php';
 
-        // 1. Cek Override di Tema (Prioritas Utama)
-        // Lokasi: themes/nama-tema/umroh-templates/nama-file.php
-        $theme_template = get_template_directory() . '/umroh-templates/' . $template . '.php';
-        
-        if (file_exists($theme_template)) {
-            include $theme_template;
+        if (!file_exists($templatePath)) {
+            // Fallback error handler
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                echo "View template not found: " . esc_html($templatePath);
+            }
             return;
         }
 
-        // 2. Fallback ke Template Bawaan Plugin
-        $plugin_template = UMH_PLUGIN_DIR . 'templates/' . $template . '.php';
-        
-        if (file_exists($plugin_template)) {
-            include $plugin_template;
-        } else {
-            // Opsional: Tampilkan error jika file benar-benar tidak ada di keduanya
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                echo "<p style='color:red;'>View Template not found: {$template}</p>";
+        // Auto-escape data untuk keamanan XSS (kecuali yang ditandai raw)
+        $data = self::escapeData($data);
+
+        // Extract data menjadi variabel
+        extract($data);
+
+        // Start output buffering
+        ob_start();
+        include $templatePath;
+        return ob_get_clean();
+    }
+
+    /**
+     * Rekursif escape data array/string
+     */
+    private static function escapeData($data) {
+        if (is_array($data)) {
+            foreach ($data as $key => $value) {
+                $data[$key] = self::escapeData($value);
             }
+        } elseif (is_string($data)) {
+            // Jangan escape jika sepertinya HTML yang aman (misal hasil wp_editor)
+            // Ini pendekatan simpel, idealnya gunakan library purifier
+            $data = htmlspecialchars($data, ENT_QUOTES, 'UTF-8');
         }
+        return $data;
     }
 }

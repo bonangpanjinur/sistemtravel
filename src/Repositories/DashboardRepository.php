@@ -1,47 +1,67 @@
 <?php
-// Folder: src/Repositories/
-// File: DashboardRepository.php
+// Path: src/Repositories/DashboardRepository.php
 
-namespace UmhMgmt\Repositories;
+namespace UmrahManagement\Repositories;
 
-use UmhMgmt\Config\Constants;
+use UmrahManagement\Interfaces\DatabaseInterface;
 
 class DashboardRepository {
-    private $wpdb;
+    private $db;
+    private $table_bookings;
+    private $table_departures;
+    private $table_packages;
 
-    public function __construct() {
-        global $wpdb;
-        $this->wpdb = $wpdb;
+    public function __construct(DatabaseInterface $db) {
+        $this->db = $db;
+        $prefix = $this->db->prefix();
+        
+        // Menggunakan prefix 'umh_' sesuai kode legacy
+        $this->table_bookings = $prefix . 'umh_bookings';
+        $this->table_departures = $prefix . 'umh_departures';
+        $this->table_packages = $prefix . 'umh_packages';
     }
 
     public function getTotalRevenue() {
-        // Menggunakan prepare untuk keamanan, meskipun query statis (Best Practice)
-        return $this->wpdb->get_var($this->wpdb->prepare(
-            "SELECT SUM(total_price) FROM {$this->wpdb->prefix}umh_bookings WHERE status = %s",
-            Constants::STATUS_PAID
+        // Mengambil total pendapatan dari booking yang statusnya 'paid'
+        return $this->db->get_var($this->db->prepare(
+            "SELECT SUM(total_price) FROM {$this->table_bookings} WHERE status = %s",
+            'paid' // Sebaiknya nanti diganti dengan Constants::STATUS_PAID jika Constants sudah direfactor
         ));
     }
 
     public function getJamaahThisMonth() {
-        return $this->wpdb->get_var("
-            SELECT COUNT(*) FROM {$this->wpdb->prefix}umh_bookings 
+        return $this->db->get_var("
+            SELECT COUNT(*) FROM {$this->table_bookings} 
             WHERE MONTH(created_at) = MONTH(CURRENT_DATE()) 
             AND YEAR(created_at) = YEAR(CURRENT_DATE())
         ");
     }
 
     public function getTotalBookings() {
-        return $this->wpdb->get_var("SELECT COUNT(*) FROM {$this->wpdb->prefix}umh_bookings");
+        return $this->db->get_var("SELECT COUNT(*) FROM {$this->table_bookings}");
     }
 
     public function getUpcomingDepartures($limit = 5) {
-        return $this->wpdb->get_results($this->wpdb->prepare("
+        $sql = $this->db->prepare("
             SELECT d.*, p.name as package_name 
-            FROM {$this->wpdb->prefix}umh_departures d
-            LEFT JOIN {$this->wpdb->prefix}umh_packages p ON d.package_id = p.id
-            WHERE d.departure_date >= CURRENT_DATE() 
+            FROM {$this->table_departures} d
+            LEFT JOIN {$this->table_packages} p ON d.package_id = p.id
+            WHERE d.departure_date >= CURDATE() 
             ORDER BY d.departure_date ASC 
             LIMIT %d
-        ", $limit));
+        ", $limit);
+
+        return $this->db->get_results($sql);
+    }
+
+    /**
+     * Method tambahan untuk ringkasan satu kali panggil (opsional, untuk efisiensi)
+     */
+    public function getSummaryStats() {
+        return [
+            'total_bookings' => $this->getTotalBookings(),
+            'revenue'        => $this->getTotalRevenue(),
+            'jamaah_month'   => $this->getJamaahThisMonth()
+        ];
     }
 }
