@@ -4,36 +4,48 @@
 namespace UmrahManagement\Providers;
 
 use UmrahManagement\Core\Container;
-use UmrahManagement\Controllers\Admin\DashboardController;
-use UmrahManagement\Controllers\Admin\PackageController;
-use UmrahManagement\Controllers\Admin\BookingController;
-use UmrahManagement\Controllers\Admin\JemaahController;
-use UmrahManagement\Controllers\Admin\FinanceController;
-use UmrahManagement\Controllers\Admin\MasterDataController;
+use UmrahManagement\Core\Router;
 
 class BackendServiceProvider {
     private $container;
+    private $router;
 
     public function __construct(Container $container) {
         $this->container = $container;
+        // Router butuh container untuk resolve controller nanti
+        $this->router = new Router($container);
     }
 
     public function register() {
-        // Hook ke admin_menu WordPress
         add_action('admin_menu', [$this, 'registerMenus']);
-        
-        // Hook lain untuk backend (misal: admin_enqueue_scripts) bisa ditambah di sini
         add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
+        
+        // Register hook untuk setiap action di routes.php
+        // Menggunakan file_exists check untuk menghindari error jika file belum dibuat
+        $routesPath = plugin_dir_path(dirname(__DIR__)) . 'src/Config/routes.php';
+        if (file_exists($routesPath)) {
+            $routes = require $routesPath;
+            if (isset($routes['actions'])) {
+                foreach ($routes['actions'] as $action => $config) {
+                    // Handle admin_post_{action}
+                    add_action('admin_post_' . $action, function() use ($action) {
+                        $this->router->dispatchAction($action);
+                    });
+                    // Handle admin_post_nopriv_{action} jika perlu guest access (bisa di config)
+                }
+            }
+        }
     }
 
     public function registerMenus() {
         // Menu Utama: Dashboard
+        // Callbacknya sekarang diarahkan ke Router::dispatch('slug')
         add_menu_page(
             'Umrah Management', 
             'Umrah Travel', 
-            'manage_options', 
+            'read', // Capability minimal
             'umroh-dashboard', 
-            [$this->resolve(DashboardController::class), 'index'],
+            function() { $this->router->dispatch('umroh-dashboard'); },
             'dashicons-airplane', 
             6
         );
@@ -45,7 +57,17 @@ class BackendServiceProvider {
             'Paket',
             'manage_options',
             'umroh-packages',
-            [$this->resolve(PackageController::class), 'index']
+            function() { $this->router->dispatch('umroh-packages'); }
+        );
+        
+        // Submenu hidden: Add Package
+        add_submenu_page(
+            null,
+            'Tambah Paket',
+            'Tambah Paket',
+            'manage_options',
+            'umroh-packages-add',
+            function() { $this->router->dispatch('umroh-packages-add'); }
         );
 
         // Submenu: Bookings
@@ -55,49 +77,41 @@ class BackendServiceProvider {
             'Bookings',
             'manage_options',
             'umroh-bookings',
-            [$this->resolve(BookingController::class), 'index']
+            function() { $this->router->dispatch('umroh-bookings'); }
         );
 
-        // Submenu: Data Jemaah (CRM)
+        // Submenu: Data Jemaah (CRM) - Restored
         add_submenu_page(
             'umroh-dashboard',
             'Data Jemaah',
             'Jemaah',
             'manage_options',
             'umroh-jemaah',
-            [$this->resolve(\UmrahManagement\Controllers\Admin\CRMController::class), 'index']
+            function() { $this->router->dispatch('umroh-jemaah'); }
         );
 
-        // Submenu: Keuangan
+        // Submenu: Keuangan - Restored
         add_submenu_page(
             'umroh-dashboard',
             'Keuangan',
             'Keuangan',
             'manage_options',
             'umroh-finance',
-            [$this->resolve(FinanceController::class), 'index']
+            function() { $this->router->dispatch('umroh-finance'); }
         );
         
-        // Submenu: Master Data
+        // Submenu: Master Data - Restored
         add_submenu_page(
             'umroh-dashboard',
             'Master Data',
             'Master Data',
             'manage_options',
             'umroh-master-data',
-            [$this->resolve(MasterDataController::class), 'index']
+            function() { $this->router->dispatch('umroh-master-data'); }
         );
     }
     
     public function enqueueAssets() {
-        // Load CSS/JS Admin
         wp_enqueue_style('umroh-admin-css', plugins_url('../../assets/css/admin.css', __DIR__));
-    }
-
-    /**
-     * Helper untuk mengambil instance controller dari container
-     */
-    private function resolve($class) {
-        return $this->container->get($class);
     }
 }

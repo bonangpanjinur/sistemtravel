@@ -1,10 +1,27 @@
 <?php
-// File: DatabaseSchema.php
-// Location: src/Config/DatabaseSchema.php
+// Path: src/Config/DatabaseSchema.php
 
-namespace UmhMgmt\Config;
+namespace UmrahManagement\Config;
 
 class DatabaseSchema {
+    
+    /**
+     * Method utama untuk membuat semua tabel.
+     * Dipanggil saat plugin diaktifkan.
+     */
+    public static function createTables() {
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        
+        $schemas = self::get_schema();
+        
+        foreach ($schemas as $sql) {
+            dbDelta($sql);
+        }
+
+        // Jalankan seeding data awal
+        self::seed_initial_data();
+    }
+
     public static function get_schema() {
         global $wpdb;
         $charset_collate = $wpdb->get_charset_collate();
@@ -27,6 +44,7 @@ class DatabaseSchema {
                 description TEXT,
                 image_url TEXT,
                 map_embed_code TEXT,
+                city VARCHAR(50), -- Added city column for consistency with MasterDataRepository
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
@@ -186,6 +204,7 @@ class DatabaseSchema {
             // --- 4. BOOKING ENGINE ---
             "CREATE TABLE {$wpdb->prefix}umh_bookings (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                code VARCHAR(50) UNIQUE, -- Added code column
                 departure_id BIGINT,
                 branch_id BIGINT,
                 customer_user_id BIGINT(20) UNSIGNED NULL,
@@ -193,6 +212,7 @@ class DatabaseSchema {
                 total_price DECIMAL(15,2) NOT NULL,
                 discount_total DECIMAL(15,2) DEFAULT 0,
                 coupon_code VARCHAR(50) NULL,
+                room_type VARCHAR(50), -- Added room_type column
                 status VARCHAR(50) DEFAULT 'pending',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 deleted_at DATETIME NULL DEFAULT NULL,
@@ -204,12 +224,11 @@ class DatabaseSchema {
             "CREATE TABLE {$wpdb->prefix}umh_booking_addons (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 booking_id BIGINT NOT NULL,
-                service_id BIGINT NOT NULL,
+                service_id BIGINT NOT NULL, // Should match service_catalog id but renamed column in input was addon_id logic
                 quantity INT DEFAULT 1,
                 total_price DECIMAL(15,2) NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE,
-                FOREIGN KEY (service_id) REFERENCES {$wpdb->prefix}umh_service_catalog(id)
+                FOREIGN KEY (booking_id) REFERENCES {$wpdb->prefix}umh_bookings(id) ON DELETE CASCADE
             ) $charset_collate;",
 
             "CREATE TABLE {$wpdb->prefix}umh_booking_passengers (
@@ -259,6 +278,7 @@ class DatabaseSchema {
                 bank_target VARCHAR(100),
                 sender_name VARCHAR(100),
                 proof_file_url TEXT,
+                payment_date DATETIME DEFAULT CURRENT_TIMESTAMP, -- Added payment_date
                 status VARCHAR(50) DEFAULT 'pending_verification',
                 verified_by BIGINT(20) UNSIGNED,
                 verified_at DATETIME,
@@ -283,15 +303,16 @@ class DatabaseSchema {
                 account_type ENUM('ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE') NOT NULL
             ) $charset_collate;",
 
-            "CREATE TABLE {$wpdb->prefix}umh_gl_entries (
+            "CREATE TABLE {$wpdb->prefix}umh_journal_entries ( -- Renamed to match FinanceRepository usage
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-                reference_no VARCHAR(50), 
+                transaction_ref_id VARCHAR(50), 
                 description TEXT,
                 account_code VARCHAR(20),
                 debit DECIMAL(15,2) DEFAULT 0,
                 credit DECIMAL(15,2) DEFAULT 0,
                 created_by BIGINT UNSIGNED,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP, -- Added created_at
                 FOREIGN KEY (account_code) REFERENCES {$wpdb->prefix}umh_gl_accounts(account_code)
             ) $charset_collate;",
             
@@ -338,6 +359,20 @@ class DatabaseSchema {
                 source_booking_id BIGINT NULL,
                 description VARCHAR(255),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) $charset_collate;",
+
+            // [BARU - MANIFEST]
+            "CREATE TABLE {$wpdb->prefix}umh_manifest (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                departure_id BIGINT NOT NULL,
+                passenger_id BIGINT NOT NULL,
+                seat_number VARCHAR(10),
+                visa_status VARCHAR(20) DEFAULT 'not_submitted',
+                visa_number VARCHAR(50),
+                room_number VARCHAR(20),
+                hotel_name VARCHAR(100),
+                FOREIGN KEY (departure_id) REFERENCES {$wpdb->prefix}umh_departures(id),
+                FOREIGN KEY (passenger_id) REFERENCES {$wpdb->prefix}umh_booking_passengers(id)
             ) $charset_collate;",
 
             "CREATE TABLE {$wpdb->prefix}umh_luggage (
@@ -398,14 +433,20 @@ class DatabaseSchema {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             ) $charset_collate;",
 
+            // [UPDATE] Tabel Leads (Fitur CRM Baru)
             "CREATE TABLE {$wpdb->prefix}umh_leads (
                 id BIGINT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL,
-                email VARCHAR(100),
-                phone VARCHAR(20),
-                status VARCHAR(50) DEFAULT 'new',
-                source VARCHAR(100),
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                phone VARCHAR(20) NOT NULL,
+                email VARCHAR(100) DEFAULT '',
+                source VARCHAR(50) DEFAULT 'manual', -- IG, FB, WA, Walk-in
+                status VARCHAR(20) DEFAULT 'new', -- new, follow_up, closing, lost
+                interested_in VARCHAR(255) DEFAULT '', -- Nama paket yang diminati
+                notes TEXT,
+                follow_up_date DATE DEFAULT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                KEY status (status)
             ) $charset_collate;",
 
             "CREATE TABLE {$wpdb->prefix}umh_employees (
@@ -476,7 +517,6 @@ class DatabaseSchema {
         ];
 
         foreach ($services as $svc) {
-            // Cek exist by name
             $exists = $wpdb->get_var($wpdb->prepare(
                 "SELECT id FROM {$wpdb->prefix}umh_service_catalog WHERE service_name = %s", 
                 $svc[0]
