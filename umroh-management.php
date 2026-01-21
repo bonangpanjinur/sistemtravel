@@ -1,132 +1,142 @@
 <?php
 /**
- * Plugin Name: Sistem Travel Umrah & Haji
- * Plugin URI: https://travel-umrah.com
- * Description: Sistem Manajemen Travel Umrah Komprehensif (ERP)
- * Version: 1.0.0
- * Author: Tim Developer
- * License: GPLv2 or later
- * Text Domain: travel-sys
+ * Plugin Name: Sistem Travel Umroh Management
+ * Plugin URI:  https://bonangpanjinur.com/
+ * Description: Sistem manajemen travel umroh lengkap dengan fitur booking, inventori, dan keuangan.
+ * Version:     1.0.0
+ * Author:      Bonang Panji Nur
+ * Author URI:  https://bonangpanjinur.com/
+ * Text Domain: sistem-travel
+ * Domain Path: /languages
  */
 
-// Cegah akses langsung
 if (!defined('ABSPATH')) {
-    exit;
+    exit; // Exit if accessed directly.
 }
 
-// 1. Definisikan Konstanta Plugin
-if (!defined('TRAVEL_SYS_PATH')) {
-    define('TRAVEL_SYS_PATH', plugin_dir_path(__FILE__));
-}
-if (!defined('TRAVEL_SYS_URL')) {
-    define('TRAVEL_SYS_URL', plugin_dir_url(__FILE__));
-}
+// Define Plugin Constants
+define('SISTEM_TRAVEL_PATH', plugin_dir_path(__FILE__));
+define('SISTEM_TRAVEL_URL', plugin_dir_url(__FILE__));
+define('SISTEM_TRAVEL_VERSION', '1.0.0');
 
-// 2. Autoloading Handling (ULTIMATE VERSION)
-// Kita load manual file-file inti untuk menghindari masalah autoloader hosting
-
-// List file kritis yang WAJIB diload manual jika autoloader macet
-$critical_files = [
-    'src/Core/Container.php',
-    'src/Providers/BackendServiceProvider.php',
-    'src/Providers/FrontendServiceProvider.php'
-];
-
-foreach ($critical_files as $file) {
-    $filepath = TRAVEL_SYS_PATH . $file;
-    if (file_exists($filepath)) {
-        require_once $filepath;
-    }
+// 1. Coba load Composer autoloader
+if (file_exists(SISTEM_TRAVEL_PATH . 'vendor/autoload.php')) {
+    require_once SISTEM_TRAVEL_PATH . 'vendor/autoload.php';
 }
 
-// Autoloader Standard (Cadangan untuk file controller lain)
-if (file_exists(TRAVEL_SYS_PATH . 'vendor/autoload.php')) {
-    require_once TRAVEL_SYS_PATH . 'vendor/autoload.php';
-}
-
+// 2. Registrasi Custom Autoloader (Cadangan)
 spl_autoload_register(function ($class) {
-    $prefix = 'App\\';
-    $base_dir = TRAVEL_SYS_PATH . 'src/';
-    
+    $prefix = 'SistemTravel\\UmrohManagement\\';
+    $base_dir = SISTEM_TRAVEL_PATH . 'src/';
+
     $len = strlen($prefix);
-    if (strncmp($prefix, $class, $len) !== 0) return;
-    
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+
     $relative_class = substr($class, $len);
-    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
-    
+    // Menggunakan DIRECTORY_SEPARATOR untuk kompatibilitas path yang lebih baik
+    $file = $base_dir . str_replace('\\', DIRECTORY_SEPARATOR, $relative_class) . '.php';
+
     if (file_exists($file)) {
         require_once $file;
     }
 });
 
-use App\Core\Container;
-use App\Providers\BackendServiceProvider;
-use App\Providers\FrontendServiceProvider;
+use SistemTravel\UmrohManagement\Core\Container;
+use SistemTravel\UmrohManagement\Providers\BackendServiceProvider;
+use SistemTravel\UmrohManagement\Providers\FrontendServiceProvider;
 
-// 3. Bootstrap Plugin
-class TravelSystemPlugin {
+class SistemTravelInit
+{
+    private static $instance = null;
     private $container;
 
-    public function __construct() {
-        add_action('admin_notices', [$this, 'checkSystemHealth']);
+    public static function get_instance()
+    {
+        if (null === self::$instance) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
 
-        try {
-            // Cek Ketersediaan Class Inti
-            if (!class_exists('App\Core\Container')) {
-                throw new Exception("CRITICAL: Class App\Core\Container tidak ditemukan. Pastikan file src/Core/Container.php memiliki 'namespace App\Core;'");
+    private function __construct()
+    {
+        // 1. Inisialisasi Container
+        $this->init_container();
+        
+        // 2. Muat Provider
+        $this->load_providers();
+    }
+
+    private function init_container()
+    {
+        // FORCE LOAD: Jika autoloader gagal, paksa load file Container secara manual
+        if (!class_exists('SistemTravel\\UmrohManagement\\Core\\Container')) {
+            $file = SISTEM_TRAVEL_PATH . 'src/Core/Container.php';
+            if (file_exists($file)) {
+                require_once $file;
+            } else {
+                // Log error fatal jika file fisik benar-benar hilang
+                error_log('Sistem Travel Critical: src/Core/Container.php tidak ditemukan.');
+                return;
+            }
+        }
+
+        // Sekarang aman untuk instansiasi
+        if (class_exists('SistemTravel\\UmrohManagement\\Core\\Container')) {
+            $this->container = new Container();
+        }
+    }
+
+    private function load_providers()
+    {
+        if (!$this->container) {
+            return;
+        }
+
+        // --- BACKEND (ADMIN) ---
+        if (is_admin()) {
+            $backendClass = 'SistemTravel\\UmrohManagement\\Providers\\BackendServiceProvider';
+            
+            // FORCE LOAD: Paksa load file Provider jika autoloader gagal
+            if (!class_exists($backendClass)) {
+                $file = SISTEM_TRAVEL_PATH . 'src/Providers/BackendServiceProvider.php';
+                if (file_exists($file)) {
+                    require_once $file;
+                }
             }
 
-            $this->container = new Container();
-            $this->initProviders();
-            
-        } catch (Exception $e) {
-            error_log('Travel System Boot Error: ' . $e->getMessage());
-            // Simpan error di global untuk ditampilkan di admin notice
-            $GLOBALS['travel_sys_boot_error'] = $e->getMessage();
-        }
-    }
-
-    private function initProviders() {
-        // Init Backend (Admin Menu)
-        if (class_exists('App\Providers\BackendServiceProvider')) {
-            $backend = new BackendServiceProvider($this->container);
-            $backend->register();
-            $backend->boot(); 
-        } else {
-             error_log('Travel System: BackendServiceProvider missing.');
+            if (class_exists($backendClass)) {
+                $backend = new BackendServiceProvider($this->container);
+                $backend->register();
+            } else {
+                // Tampilkan pesan error di admin dashboard jika gagal total
+                add_action('admin_notices', function() {
+                    echo '<div class="notice notice-error"><p><strong>Sistem Travel Error:</strong> Gagal memuat BackendServiceProvider. Periksa folder <code>src/Providers/</code>.</p></div>';
+                });
+            }
         }
 
-        // Init Frontend
-        if (class_exists('App\Providers\FrontendServiceProvider')) {
+        // --- FRONTEND (PUBLIC) ---
+        $frontendClass = 'SistemTravel\\UmrohManagement\\Providers\\FrontendServiceProvider';
+        if (!class_exists($frontendClass)) {
+             $file = SISTEM_TRAVEL_PATH . 'src/Providers/FrontendServiceProvider.php';
+             if (file_exists($file)) {
+                 require_once $file;
+             }
+        }
+
+        if (class_exists($frontendClass)) {
             $frontend = new FrontendServiceProvider($this->container);
             $frontend->register();
-            $frontend->boot();
-        }
-    }
-
-    /**
-     * Fitur Diagnostik
-     */
-    public function checkSystemHealth() {
-        if (!current_user_can('activate_plugins')) return;
-
-        // Tampilkan error boot jika ada
-        if (isset($GLOBALS['travel_sys_boot_error'])) {
-            echo '<div class="notice notice-error"><p><strong>Travel System Error:</strong> ' . esc_html($GLOBALS['travel_sys_boot_error']) . '</p></div>';
-        }
-
-        // Cek file fisik
-        $missing = [];
-        if (!file_exists(TRAVEL_SYS_PATH . 'src/Core/Container.php')) $missing[] = 'src/Core/Container.php';
-        if (!file_exists(TRAVEL_SYS_PATH . 'src/Providers/BackendServiceProvider.php')) $missing[] = 'src/Providers/BackendServiceProvider.php';
-
-        if (!empty($missing)) {
-             echo '<div class="notice notice-warning"><p>File berikut hilang dari server: ' . implode(', ', $missing) . '</p></div>';
         }
     }
 }
 
-// 4. Jalankan Plugin
-add_action('plugins_loaded', function() {
-    new TravelSystemPlugin();
+add_action('plugins_loaded', ['SistemTravelInit', 'get_instance']);
+
+// Aktivasi & Deaktivasi
+register_activation_hook(__FILE__, function() {
+    // \SistemTravel\UmrohManagement\Config\DatabaseSchema::createTables();
 });

@@ -1,131 +1,77 @@
 <?php
 
-namespace App\Core;
+namespace SistemTravel\UmrohManagement\Core;
 
-use ReflectionClass;
-use Exception;
-
+/**
+ * Simple Dependency Injection Container
+ */
 class Container
 {
-    /**
-     * @var array
-     */
+    protected $bindings = [];
     protected $instances = [];
 
     /**
-     * @var array
-     */
-    protected $bindings = [];
-
-    /**
-     * Bind interface to concrete class
-     * * @param string $abstract
-     * @param mixed $concrete
+     * Bind a class or interface to a closure or instance.
      */
     public function bind($abstract, $concrete = null)
     {
-        if (is_null($concrete)) {
+        if ($concrete === null) {
             $concrete = $abstract;
         }
         $this->bindings[$abstract] = $concrete;
     }
 
     /**
-     * Resolve dependency
-     * * @param string $abstract
-     * @return mixed
-     * @throws Exception
+     * Bind a singleton instance.
      */
-    public function get($abstract)
+    public function singleton($abstract, $concrete = null)
     {
-        // 1. Return existing instance (Singleton pattern)
-        if (isset($this->instances[$abstract])) {
+        $this->bind($abstract, $concrete);
+        $this->instances[$abstract] = null; // Mark as singleton
+    }
+
+    /**
+     * Resolve a dependency.
+     */
+    public function make($abstract)
+    {
+        // Return existing singleton instance if available
+        if (isset($this->instances[$abstract]) && $this->instances[$abstract] !== null) {
             return $this->instances[$abstract];
         }
 
-        // 2. Resolve binding
+        // If explicitly bound
         if (isset($this->bindings[$abstract])) {
             $concrete = $this->bindings[$abstract];
             
-            // If closure, execute it
+            // If it's a closure/factory, execute it
             if ($concrete instanceof \Closure) {
                 $object = $concrete($this);
             } else {
-                // If string class name, recursive resolve
-                $object = $this->get($concrete);
+                // If it's a class string, instantiate it
+                $object = new $concrete($this);
             }
-            
-            $this->instances[$abstract] = $object;
-            return $object;
-        }
-
-        // 3. Auto-wiring (Reflection)
-        if (class_exists($abstract)) {
-            return $this->resolveViaReflection($abstract);
-        }
-
-        throw new Exception("Class {$abstract} not found in Container bindings.");
-    }
-
-    /**
-     * Resolve class using Reflection API
-     */
-    protected function resolveViaReflection($abstract)
-    {
-        $reflector = new ReflectionClass($abstract);
-
-        // Check if class is instantiable
-        if (!$reflector->isInstantiable()) {
-            throw new Exception("Class {$abstract} is not instantiable.");
-        }
-
-        // Get constructor
-        $constructor = $reflector->getConstructor();
-
-        // If no constructor, simpler
-        if (is_null($constructor)) {
-            return new $abstract;
-        }
-
-        // Get constructor params
-        $parameters = $constructor->getParameters();
-        $dependencies = $this->resolveDependencies($parameters);
-
-        return $reflector->newInstanceArgs($dependencies);
-    }
-
-    /**
-     * Resolve dependency recursively
-     */
-    protected function resolveDependencies($parameters)
-    {
-        $dependencies = [];
-
-        foreach ($parameters as $parameter) {
-            $type = $parameter->getType();
-            
-            if (!$type) {
-                // If no type hint, we can't guess (maybe use default value)
-                if ($parameter->isDefaultValueAvailable()) {
-                    $dependencies[] = $parameter->getDefaultValue();
-                } else {
-                    throw new Exception("Cannot resolve parameter {$parameter->name}");
-                }
-                continue;
-            }
-
-            if (!$type->isBuiltin()) {
-                // Recursive call to get()
-                $dependencies[] = $this->get($type->getName());
+        } else {
+            // If not bound, try to instantiate directly
+            if (class_exists($abstract)) {
+                $object = new $abstract($this);
             } else {
-                if ($parameter->isDefaultValueAvailable()) {
-                    $dependencies[] = $parameter->getDefaultValue();
-                } else {
-                     throw new Exception("Cannot resolve builtin parameter {$parameter->name}");
-                }
+                // Last resort: just return string or null (or throw Exception)
+                return null;
             }
         }
 
-        return $dependencies;
+        // Save if singleton
+        if (array_key_exists($abstract, $this->instances)) {
+            $this->instances[$abstract] = $object;
+        }
+
+        return $object;
+    }
+    
+    // Alias for make
+    public function get($id)
+    {
+        return $this->make($id);
     }
 }
