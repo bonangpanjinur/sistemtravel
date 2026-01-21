@@ -1,118 +1,131 @@
 <?php
-// Path: src/Core/Container.php
 
-namespace UmrahManagement\Core;
+namespace App\Core;
 
 use ReflectionClass;
-use ReflectionException;
 use Exception;
 
-class Container {
+class Container
+{
     /**
-     * Map interface ke class konkret.
-     */
-    protected $bindings = [];
-
-    /**
-     * Instance yang disimpan (Singleton).
+     * @var array
      */
     protected $instances = [];
 
     /**
-     * Mendaftarkan binding interface ke class.
-     * Contoh: bind(DatabaseInterface::class, WordPressDatabaseAdapter::class)
+     * @var array
      */
-    public function bind($abstract, $concrete = null) {
-        if ($concrete === null) {
+    protected $bindings = [];
+
+    /**
+     * Bind interface to concrete class
+     * * @param string $abstract
+     * @param mixed $concrete
+     */
+    public function bind($abstract, $concrete = null)
+    {
+        if (is_null($concrete)) {
             $concrete = $abstract;
         }
         $this->bindings[$abstract] = $concrete;
     }
 
     /**
-     * Mendaftarkan singleton (instance dibagi pakai).
+     * Resolve dependency
+     * * @param string $abstract
+     * @return mixed
+     * @throws Exception
      */
-    public function singleton($abstract, $concrete = null) {
-        $this->bind($abstract, $concrete);
-        $this->instances[$abstract] = null; // Tandai sebagai singleton
-    }
-
-    /**
-     * Mengambil instance class (Resolve).
-     */
-    public function get($abstract) {
-        // Cek apakah ini singleton yang sudah dibuat
-        if (array_key_exists($abstract, $this->instances) && $this->instances[$abstract] !== null) {
+    public function get($abstract)
+    {
+        // 1. Return existing instance (Singleton pattern)
+        if (isset($this->instances[$abstract])) {
             return $this->instances[$abstract];
         }
 
-        $concrete = $this->bindings[$abstract] ?? $abstract;
-
-        // Jika konkretnya adalah closure/fungsi
-        if ($concrete instanceof \Closure) {
-            $object = $concrete($this);
-        } else {
-            // Jika konkretnya adalah nama class, lakukan build (auto-wiring)
-            $object = $this->build($concrete);
-        }
-
-        // Simpan instance jika ini singleton
-        if (array_key_exists($abstract, $this->instances)) {
+        // 2. Resolve binding
+        if (isset($this->bindings[$abstract])) {
+            $concrete = $this->bindings[$abstract];
+            
+            // If closure, execute it
+            if ($concrete instanceof \Closure) {
+                $object = $concrete($this);
+            } else {
+                // If string class name, recursive resolve
+                $object = $this->get($concrete);
+            }
+            
             $this->instances[$abstract] = $object;
+            return $object;
         }
 
-        return $object;
+        // 3. Auto-wiring (Reflection)
+        if (class_exists($abstract)) {
+            return $this->resolveViaReflection($abstract);
+        }
+
+        throw new Exception("Class {$abstract} not found in Container bindings.");
     }
 
     /**
-     * Membuat instance class dan menginject dependency-nya secara otomatis.
+     * Resolve class using Reflection API
      */
-    protected function build($concrete) {
-        try {
-            $reflector = new ReflectionClass($concrete);
-        } catch (ReflectionException $e) {
-            throw new Exception("Target class [$concrete] does not exist.", 0, $e);
-        }
+    protected function resolveViaReflection($abstract)
+    {
+        $reflector = new ReflectionClass($abstract);
 
+        // Check if class is instantiable
         if (!$reflector->isInstantiable()) {
-            throw new Exception("Target [$concrete] is not instantiable.");
+            throw new Exception("Class {$abstract} is not instantiable.");
         }
 
+        // Get constructor
         $constructor = $reflector->getConstructor();
 
-        // Jika tidak ada constructor, langsung buat instance baru
+        // If no constructor, simpler
         if (is_null($constructor)) {
-            return new $concrete;
+            return new $abstract;
         }
 
-        $dependencies = $constructor->getParameters();
-        $instances = $this->resolveDependencies($dependencies);
+        // Get constructor params
+        $parameters = $constructor->getParameters();
+        $dependencies = $this->resolveDependencies($parameters);
 
-        return $reflector->newInstanceArgs($instances);
+        return $reflector->newInstanceArgs($dependencies);
     }
 
     /**
-     * Menyelesaikan dependency dari parameter constructor.
+     * Resolve dependency recursively
      */
-    protected function resolveDependencies($dependencies) {
-        $results = [];
+    protected function resolveDependencies($parameters)
+    {
+        $dependencies = [];
 
-        foreach ($dependencies as $dependency) {
-            $type = $dependency->getType();
-
-            if (!$type || $type->isBuiltin()) {
-                // Jika tipe primitif (string, int), coba cari nilai default
-                if ($dependency->isDefaultValueAvailable()) {
-                    $results[] = $dependency->getDefaultValue();
+        foreach ($parameters as $parameter) {
+            $type = $parameter->getType();
+            
+            if (!$type) {
+                // If no type hint, we can't guess (maybe use default value)
+                if ($parameter->isDefaultValueAvailable()) {
+                    $dependencies[] = $parameter->getDefaultValue();
                 } else {
-                    throw new Exception("Unresolvable dependency resolving [$dependency] in class {$dependency->getDeclaringClass()->getName()}");
+                    throw new Exception("Cannot resolve parameter {$parameter->name}");
                 }
+                continue;
+            }
+
+            if (!$type->isBuiltin()) {
+                // Recursive call to get()
+                $dependencies[] = $this->get($type->getName());
             } else {
-                // Jika tipe class/interface, panggil get() secara rekursif
-                $results[] = $this->get($type->getName());
+                if ($parameter->isDefaultValueAvailable()) {
+                    $dependencies[] = $parameter->getDefaultValue();
+                } else {
+                     throw new Exception("Cannot resolve builtin parameter {$parameter->name}");
+                }
             }
         }
 
-        return $results;
+        return $dependencies;
     }
 }

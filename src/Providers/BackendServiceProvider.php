@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Core\Container;
+// Import Controllers
 use App\Controllers\Admin\DashboardController;
 use App\Controllers\Admin\PackageController;
 use App\Controllers\Admin\BookingController;
@@ -37,52 +38,42 @@ class BackendServiceProvider
 
     public function register()
     {
-        // Container setup
+        // Tempat registrasi binding container jika perlu
     }
 
     public function boot()
     {
-        add_action('admin_menu', [$this, 'registerAdminMenus']);
+        // Pastikan hook ini berjalan
+        add_action('admin_menu', [$this, 'registerAdminMenus'], 99); // Priority 99 biar belakangan
         add_action('admin_enqueue_scripts', [$this, 'enqueueAdminAssets']);
     }
 
     public function enqueueAdminAssets()
     {
-        // Pastikan path ini benar relatif terhadap file plugin utama
-        // dirname(__DIR__, 2) naik 2 level dari src/Providers ke root plugin
-        wp_enqueue_style(
-            'travel-sys-admin', 
-            plugins_url('assets/css/admin.css', dirname(__DIR__, 2) . '/umroh-management.php'), 
-            [], 
-            '1.0.0'
-        );
+        // Aset Admin
     }
 
     /**
-     * Helper untuk memanggil controller secara aman.
-     * Mengembalikan Closure yang valid untuk callback WordPress.
+     * Helper sederhana untuk dispatch controller
      */
-    private function createCallback($controllerClass, $method = 'index')
+    public function dispatch($controllerClass, $method = 'index')
     {
-        // Kita bind $this secara eksplisit agar container bisa diakses
-        return function() use ($controllerClass, $method) {
-            // Cek apakah class ada di container atau autoload
-            if (!class_exists($controllerClass)) {
-                echo "<div class='notice notice-error'><p>Error: Controller <code>{$controllerClass}</code> tidak ditemukan.</p></div>";
-                return;
+        if (!class_exists($controllerClass)) {
+            echo "<div class='notice notice-error'><p>Class $controllerClass not found.</p></div>";
+            return;
+        }
+        
+        try {
+            // Gunakan container untuk resolve dependency
+            $controller = $this->container->get($controllerClass);
+            if (method_exists($controller, $method)) {
+                $controller->$method();
+            } else {
+                echo "<div class='notice notice-error'><p>Method $method missing in $controllerClass</p></div>";
             }
-
-            try {
-                $controller = $this->container->get($controllerClass);
-                if (method_exists($controller, $method)) {
-                    $controller->$method();
-                } else {
-                    echo "<div class='notice notice-error'><p>Error: Method <code>{$method}</code> tidak ditemukan di <code>{$controllerClass}</code>.</p></div>";
-                }
-            } catch (\Exception $e) {
-                echo "<div class='notice notice-error'><p>System Error: " . $e->getMessage() . "</p></div>";
-            }
-        };
+        } catch (\Exception $e) {
+            echo "<div class='notice notice-error'><p>Error: " . $e->getMessage() . "</p></div>";
+        }
     }
 
     public function registerAdminMenus()
@@ -90,181 +81,137 @@ class BackendServiceProvider
         $capability = 'manage_options';
         $slug_prefix = 'travel-sys';
 
-        // 1. MENU UTAMA: TRAVEL SYSTEM
-        // POSISI DIUBAH KE 30 AGAR TIDAK KONFLIK DENGAN DASHBOARD BAWAAN WP
+        // --- MENU UTAMA ---
         add_menu_page(
-            'Travel Management',    // Page Title
-            'Sistem Travel',        // Menu Title
-            $capability,            // Capability
-            $slug_prefix . '-dashboard', // Menu Slug
-            $this->createCallback(DashboardController::class), // Callback
-            'dashicons-airplane',   // Icon
-            30                      // Position (30 = Middle sidebar)
+            'Sistem Travel',
+            'Sistem Travel',
+            $capability,
+            $slug_prefix . '-dashboard',
+            function() { $this->dispatch(DashboardController::class); },
+            'dashicons-airplane',
+            50 // Posisi aman di tengah
         );
 
-        // Submenu: Dashboard (Harus sama slugnya dengan parent agar jadi default)
         add_submenu_page(
             $slug_prefix . '-dashboard',
             'Dashboard',
             'Dashboard',
             $capability,
             $slug_prefix . '-dashboard',
-            $this->createCallback(DashboardController::class)
+            function() { $this->dispatch(DashboardController::class); }
         );
 
-        // ----------------------------------------------------------------
-        // GROUP: PRODUK & LAYANAN
-        // ----------------------------------------------------------------
-        
+        // --- GROUP: PRODUK ---
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Manajemen Paket',
+            'Paket Umrah & Wisata',
             'Paket Travel',
             $capability,
             $slug_prefix . '-packages',
-            $this->createCallback(PackageController::class)
+            function() { $this->dispatch(PackageController::class); }
         );
-
+        
         add_submenu_page(
             $slug_prefix . '-dashboard',
             'Layanan Tambahan',
             'Layanan Tambahan',
             $capability,
             $slug_prefix . '-special-services',
-            $this->createCallback(SpecialServicesController::class)
+            function() { $this->dispatch(SpecialServicesController::class); }
         );
 
-        // ----------------------------------------------------------------
-        // GROUP: PENJUALAN (SALES & CRM)
-        // ----------------------------------------------------------------
-
+        // --- GROUP: PENJUALAN ---
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Data Booking',
+            'Data Transaksi Booking',
             'Transaksi Booking',
             $capability,
             $slug_prefix . '-bookings',
-            $this->createCallback(BookingController::class)
+            function() { $this->dispatch(BookingController::class); }
         );
 
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Leads / Prospek',
-            'Leads (CRM)',
+            'Data Prospek (Leads)',
+            'Leads / CRM',
             $capability,
             $slug_prefix . '-leads',
-            $this->createCallback(LeadController::class)
+            function() { $this->dispatch(LeadController::class); }
         );
 
-        // ----------------------------------------------------------------
-        // GROUP: KEUANGAN (FINANCE & SAVINGS)
-        // ----------------------------------------------------------------
-
+        // --- GROUP: KEUANGAN ---
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Keuangan & Invoicing',
-            '-- Keuangan --', 
+            'Keuangan',
+            '-- Keuangan --', // Separator
             $capability,
             $slug_prefix . '-finance',
-            $this->createCallback(FinanceController::class)
+            function() { $this->dispatch(FinanceController::class); }
         );
 
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Tabungan Umrah',
             'Tabungan Jamaah',
+            'Tabungan Umrah',
             $capability,
             $slug_prefix . '-savings',
-            $this->createCallback(SavingsController::class)
+            function() { $this->dispatch(SavingsController::class); }
         );
 
+        // --- GROUP: OPERASIONAL ---
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Rencana Tabungan',
-            'Setup Paket Tabungan',
-            $capability,
-            $slug_prefix . '-savings-plan',
-            $this->createCallback(SavingsPlanController::class)
-        );
-
-        // ----------------------------------------------------------------
-        // GROUP: OPERASIONAL (OPERATIONS)
-        // ----------------------------------------------------------------
-        
-        add_submenu_page(
-            $slug_prefix . '-dashboard',
-            'Operasional Umum',
-            '-- Operasional --', 
+            'Operasional',
+            '-- Operasional --', // Separator
             $capability,
             $slug_prefix . '-operational',
-            $this->createCallback(OperationalController::class)
+            function() { $this->dispatch(OperationalController::class); }
         );
 
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Jadwal Keberangkatan',
             'Keberangkatan',
+            'Jadwal Keberangkatan',
             $capability,
             $slug_prefix . '-departures',
-            $this->createCallback(DepartureController::class)
+            function() { $this->dispatch(DepartureController::class); }
         );
 
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Manifest Penerbangan',
-            'Manifest',
+            'Manifest Penumpang',
+            'Manifest Pesawat',
             $capability,
             $slug_prefix . '-manifest',
-            $this->createCallback(ManifestController::class)
+            function() { $this->dispatch(ManifestController::class); }
         );
 
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Rooming List Hotel',
             'Rooming List',
+            'Rooming Hotel',
             $capability,
             $slug_prefix . '-rooming',
-            $this->createCallback(RoomingListController::class)
+            function() { $this->dispatch(RoomingListController::class); }
         );
 
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Handling Visa',
+            'Visa Handling',
             'Visa Handling',
             $capability,
             $slug_prefix . '-visa',
-            $this->createCallback(VisaController::class)
+            function() { $this->dispatch(VisaController::class); }
         );
 
+        // --- GROUP: SDM & AGEN ---
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Inventory Scanner',
-            'Scan Perlengkapan',
-            $capability,
-            $slug_prefix . '-inventory',
-            $this->createCallback(InventoryScannerController::class)
-        );
-
-        // ----------------------------------------------------------------
-        // GROUP: SDM & CABANG
-        // ----------------------------------------------------------------
-
-        add_submenu_page(
-            $slug_prefix . '-dashboard',
-            'Data Cabang',
-            '-- Cabang & SDM --', 
-            $capability,
-            $slug_prefix . '-branches',
-            $this->createCallback(BranchController::class)
-        );
-
-        add_submenu_page(
-            $slug_prefix . '-dashboard',
-            'Data Agen & Mitra',
-            'Agen & Mitra',
+            'Keagenan',
+            '-- Agen & SDM --', // Separator
             $capability,
             $slug_prefix . '-agents',
-            $this->createCallback(AgentsHRController::class)
+            function() { $this->dispatch(AgentsHRController::class); }
         );
 
         add_submenu_page(
@@ -273,29 +220,26 @@ class BackendServiceProvider
             'Komisi Agen',
             $capability,
             $slug_prefix . '-commissions',
-            $this->createCallback(AgentCommissionController::class)
+            function() { $this->dispatch(AgentCommissionController::class); }
         );
-
+        
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Data Karyawan',
-            'Data Karyawan',
+            'Data Cabang',
+            'Data Cabang',
             $capability,
-            $slug_prefix . '-employees',
-            $this->createCallback(EmployeeController::class)
+            $slug_prefix . '-branches',
+            function() { $this->dispatch(BranchController::class); }
         );
 
-        // ----------------------------------------------------------------
-        // GROUP: SYSTEM & SETTINGS
-        // ----------------------------------------------------------------
-
+        // --- GROUP: SISTEM ---
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Laporan Lengkap',
-            '-- Laporan & Sistem --',
+            'Laporan',
+            '-- Laporan & Setting --',
             $capability,
             $slug_prefix . '-reports',
-            $this->createCallback(ReportController::class)
+            function() { $this->dispatch(ReportController::class); }
         );
 
         add_submenu_page(
@@ -304,25 +248,16 @@ class BackendServiceProvider
             'Master Data',
             $capability,
             $slug_prefix . '-master-data',
-            $this->createCallback(MasterDataController::class)
+            function() { $this->dispatch(MasterDataController::class); }
         );
 
         add_submenu_page(
             $slug_prefix . '-dashboard',
-            'Integrasi API',
-            'Integrasi API',
-            $capability,
-            $slug_prefix . '-integrations',
-            $this->createCallback(IntegrationController::class)
-        );
-
-        add_submenu_page(
-            $slug_prefix . '-dashboard',
-            'Pengaturan Sistem',
             'Pengaturan',
+            'Pengaturan Sistem',
             $capability,
             $slug_prefix . '-settings',
-            $this->createCallback(SettingsController::class)
+            function() { $this->dispatch(SettingsController::class); }
         );
     }
 }
