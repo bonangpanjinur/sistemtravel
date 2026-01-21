@@ -17,6 +17,10 @@ class FrontendServiceProvider {
     }
 
     public function register() {
+        // Tempat registrasi binding container jika perlu
+    }
+
+    public function boot() {
         // Registrasi Shortcode
         add_shortcode('umroh_booking_form', [$this, 'renderBookingForm']);
         // Mengembalikan shortcode yang sebelumnya hilang
