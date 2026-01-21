@@ -1,7 +1,7 @@
 <?php
 // Path: src/Controllers/Admin/BookingController.php
 
-namespace UmrahManagement\Controllers\Admin;
+namespace UmrahManagement\Controllers\Admin; // PENTING: Namespace harus ini
 
 use UmrahManagement\Repositories\BookingRepository;
 use UmrahManagement\Utils\View;
@@ -14,13 +14,13 @@ class BookingController {
     }
 
     public function index() {
-        // Ambil filter dari URL jika ada
         $filters = [];
         if (isset($_GET['status'])) {
             $filters['status'] = sanitize_text_field($_GET['status']);
         }
 
-        $bookings = $this->bookingRepo->findAllWithDetails(); // Menggunakan method yang sudah ada di repo refactored
+        // Mengambil data menggunakan repository yang sudah direfactor
+        $bookings = $this->bookingRepo->findAllWithDetails(); 
 
         echo View::render('admin/bookings/list', [
             'bookings' => $bookings
