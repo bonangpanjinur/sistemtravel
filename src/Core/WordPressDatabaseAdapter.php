@@ -1,9 +1,9 @@
 <?php
 // Path: src/Core/WordPressDatabaseAdapter.php
 
-namespace UmrahManagement\Core;
+namespace App\Core;
 
-use UmrahManagement\Interfaces\DatabaseInterface;
+use App\Interfaces\DatabaseInterface;
 
 class WordPressDatabaseAdapter implements DatabaseInterface {
     private $wpdb;

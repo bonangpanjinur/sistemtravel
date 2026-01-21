@@ -1,56 +1,46 @@
 <?php
 // File: src/Controllers/Admin/SettingsController.php
 
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Utils\View;
+use App\Utils\View;
 
 class SettingsController {
 
     public function __construct() {
-        add_action('admin_menu', [$this, 'registerMenu']);
         add_action('admin_post_umh_save_settings', [$this, 'handleSaveSettings']);
     }
 
-    public function registerMenu() {
-        // PERBAIKAN: Slug parent diganti dari 'umroh-management' menjadi 'umh-dashboard'
-        // agar sesuai dengan menu utama yang dibuat di DashboardController.
-        add_submenu_page(
-            'umh-dashboard', 
-            'Pengaturan Sistem', 
-            'Pengaturan', 
-            'manage_options', 
-            'umh-settings', 
-            [$this, 'render']
-        );
-    }
+    public function index() {
+        $tab = $_GET['tab'] ?? 'staff';
 
-    public function render() {
-        // Ambil semua opsi yang dibutuhkan
-        $settings = [
-            // General
-            'company_name' => get_option('umh_company_name', get_bloginfo('name')),
-            'company_address' => get_option('umh_company_address', ''),
-            'company_phone' => get_option('umh_company_phone', ''),
-            'company_logo' => get_option('umh_company_logo', ''), // URL Logo
-            
-            // Payment (Midtrans)
-            'midtrans_server_key' => get_option('umh_midtrans_server_key', ''),
-            'midtrans_client_key' => get_option('umh_midtrans_client_key', ''),
-            'midtrans_is_production' => get_option('umh_midtrans_is_production', 0),
-            
-            // Notification (WA & Email)
-            'wa_api_url' => get_option('umh_wa_api_url', ''),
-            'wa_api_token' => get_option('umh_wa_api_token', ''),
-            'email_sender_name' => get_option('umh_email_sender_name', get_bloginfo('name')),
-            'wa_msg_booking' => get_option('umh_wa_msg_booking', "Halo {name}, booking paket {package} berhasil. Silakan lakukan pembayaran."),
-            'wa_msg_payment' => get_option('umh_wa_msg_payment', "Terima kasih {name}, pembayaran sebesar Rp {amount} telah kami terima."),
-
-            // Integrations (Siskopatuh)
-            'siskopatuh_api_key' => get_option('umh_siskopatuh_api_key', ''),
+        $tabs = [
+            ['id' => 'staff', 'label' => 'Staff', 'url' => admin_url('admin.php?page=travel-sys-settings-group&tab=staff')],
+            ['id' => 'agents', 'label' => 'Agen', 'url' => admin_url('admin.php?page=travel-sys-settings-group&tab=agents')],
+            ['id' => 'master', 'label' => 'Master Data', 'url' => admin_url('admin.php?page=travel-sys-settings-group&tab=master')],
+            ['id' => 'integrations', 'label' => 'Integrasi', 'url' => admin_url('admin.php?page=travel-sys-settings-group&tab=integrations')],
         ];
 
-        View::render('admin/settings', ['settings' => $settings]);
+        echo '<div class="wrap">';
+        echo '<h1>Pengaturan</h1>';
+        View::renderTabs($tabs, $tab);
+
+        switch ($tab) {
+            case 'agents':
+                echo View::render('admin/agents/list');
+                break;
+            case 'master':
+                echo View::render('admin/master-data');
+                break;
+            case 'integrations':
+                echo View::render('admin/integrations/list');
+                break;
+            case 'staff':
+            default:
+                echo View::render('admin/settings');
+                break;
+        }
+        echo '</div>';
     }
 
     public function handleSaveSettings() {
@@ -60,7 +50,6 @@ class SettingsController {
 
         check_admin_referer('umh_save_settings_action', 'umh_settings_nonce');
 
-        // List field yang diizinkan untuk disimpan
         $fields = [
             'umh_company_name', 'umh_company_address', 'umh_company_phone', 'umh_company_logo',
             'umh_midtrans_server_key', 'umh_midtrans_client_key', 'umh_midtrans_is_production',
@@ -71,13 +60,11 @@ class SettingsController {
 
         foreach ($fields as $field) {
             if (isset($_POST[$field])) {
-                // Sanitasi dasar
                 $value = ($_POST[$field]); 
                 if ($field === 'umh_midtrans_is_production') {
                     $value = intval($value);
                 } else {
                     $value = sanitize_text_field($value);
-                    // Pengecualian untuk text area atau HTML jika perlu
                     if (strpos($field, 'msg') !== false) {
                         $value = sanitize_textarea_field($_POST[$field]);
                     }
@@ -86,8 +73,7 @@ class SettingsController {
             }
         }
 
-        // Redirect kembali dengan pesan sukses
-        wp_redirect(admin_url('admin.php?page=umh-settings&status=success'));
+        wp_redirect(admin_url('admin.php?page=travel-sys-settings-group&status=success'));
         exit;
     }
 }

@@ -2,9 +2,9 @@
 // File: VisaController.php
 // Location: src/Controllers/Admin/VisaController.php
 
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Utils\View;
+use App\Utils\View;
 
 class VisaController {
 

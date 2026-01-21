@@ -1,5 +1,5 @@
 <?php
-namespace UmhMgmt\Services;
+namespace App\Services;
 
 class DocumentService {
     /**

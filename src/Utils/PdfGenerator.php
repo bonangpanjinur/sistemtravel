@@ -1,7 +1,7 @@
 <?php
 // src/Utils/PdfGenerator.php
 
-namespace UmhMgmt\Utils;
+namespace App\Utils;
 
 use Dompdf\Dompdf;
 use Dompdf\Options;

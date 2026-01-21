@@ -1,11 +1,11 @@
 <?php
 // src/Services/PaymentService.php
 
-namespace UmhMgmt\Services;
+namespace App\Services;
 
-use UmhMgmt\Core\Container;
-use UmhMgmt\Repositories\BookingRepository;
-use UmhMgmt\Services\PaymentFactory;
+use App\Core\Container;
+use App\Repositories\BookingRepository;
+use App\Services\PaymentFactory;
 
 class PaymentService {
 

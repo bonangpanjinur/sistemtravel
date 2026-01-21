@@ -2,9 +2,9 @@
 // File: DigitalIdController.php
 // Location: src/Controllers/Frontend/DigitalIdController.php
 
-namespace UmhMgmt\Controllers\Frontend;
+namespace App\Controllers\Frontend;
 
-use UmhMgmt\Utils\View;
+use App\Utils\View;
 
 class DigitalIdController {
 

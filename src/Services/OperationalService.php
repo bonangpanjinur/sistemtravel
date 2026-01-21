@@ -1,7 +1,7 @@
 <?php
 // File: src/Services/OperationalService.php
 
-namespace UmhMgmt\Services;
+namespace App\Services;
 
 use Exception;
 

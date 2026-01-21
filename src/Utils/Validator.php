@@ -1,7 +1,7 @@
 <?php
 // Path: src/Utils/Validator.php
 
-namespace UmrahManagement\Utils;
+namespace App\Utils;
 
 class Validator {
     private $data;

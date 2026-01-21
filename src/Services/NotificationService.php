@@ -2,9 +2,9 @@
 // File: NotificationService.php
 // Location: src/Services/NotificationService.php
 
-namespace UmhMgmt\Services;
+namespace App\Services;
 
-use UmhMgmt\Utils\View;
+use App\Utils\View;
 
 class NotificationService {
 

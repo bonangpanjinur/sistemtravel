@@ -1,7 +1,7 @@
 <?php
 // Path: src/Config/DatabaseSchema.php
 
-namespace UmrahManagement\Config;
+namespace App\Config;
 
 class DatabaseSchema {
     

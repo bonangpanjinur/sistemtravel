@@ -1,12 +1,12 @@
 <?php
 // Path: src/Controllers/Admin/LeadController.php
 
-namespace UmrahManagement\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmrahManagement\Repositories\LeadRepository;
-use UmrahManagement\Repositories\BookingRepository;
-use UmrahManagement\Utils\View;
-use UmrahManagement\Utils\Validator;
+use App\Repositories\LeadRepository;
+use App\Repositories\BookingRepository;
+use App\Utils\View;
+use App\Utils\Validator;
 
 class LeadController {
     private $leadRepo;

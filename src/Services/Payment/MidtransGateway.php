@@ -1,9 +1,9 @@
 <?php
 // src/Services/Payment/MidtransGateway.php
 
-namespace UmhMgmt\Services\Payment;
+namespace App\Services\Payment;
 
-use UmhMgmt\Interfaces\PaymentGatewayInterface;
+use App\Interfaces\PaymentGatewayInterface;
 use Midtrans\Config;
 use Midtrans\Snap;
 use Midtrans\Notification;

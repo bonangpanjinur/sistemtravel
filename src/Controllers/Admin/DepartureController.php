@@ -2,12 +2,12 @@
 // File: DepartureController.php
 // Location: src/Controllers/Admin/DepartureController.php
 
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Utils\View;
-use UmhMgmt\Repositories\OperationalRepository;
-use UmhMgmt\Repositories\PackageRepository;
-use UmhMgmt\Repositories\MasterDataRepository;
+use App\Utils\View;
+use App\Repositories\OperationalRepository;
+use App\Repositories\PackageRepository;
+use App\Repositories\MasterDataRepository;
 
 class DepartureController {
     private $repo;

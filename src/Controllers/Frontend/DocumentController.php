@@ -1,11 +1,11 @@
 <?php
 // src/Controllers/Frontend/DocumentController.php
 
-namespace UmhMgmt\Controllers\Frontend;
+namespace App\Controllers\Frontend;
 
-use UmhMgmt\Core\Container;
-use UmhMgmt\Repositories\BookingRepository;
-use UmhMgmt\Services\AuditLogService;
+use App\Core\Container;
+use App\Repositories\BookingRepository;
+use App\Services\AuditLogService;
 
 class DocumentController {
     

@@ -1,7 +1,7 @@
 <?php
 // src/Interfaces/PaymentGatewayInterface.php
 
-namespace UmhMgmt\Interfaces;
+namespace App\Interfaces;
 
 /**
  * Interface PaymentGatewayInterface

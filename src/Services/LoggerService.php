@@ -1,7 +1,7 @@
 <?php
 // Path: src/Services/LoggerService.php
 
-namespace UmrahManagement\Services;
+namespace App\Services;
 
 class LoggerService {
     private $logFile;

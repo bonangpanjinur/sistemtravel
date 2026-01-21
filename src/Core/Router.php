@@ -1,7 +1,7 @@
 <?php
 // Path: src/Core/Router.php
 
-namespace UmrahManagement\Core;
+namespace App\Core;
 
 class Router {
     private $container;
@@ -17,6 +17,9 @@ class Router {
      * Dipanggil saat user membuka halaman admin menu.
      */
     public function dispatch($pageSlug) {
+        // Sanitasi page slug
+        $pageSlug = sanitize_text_field($pageSlug);
+
         if (!isset($this->routes[$pageSlug])) {
             echo '<div class="notice notice-error"><p>Halaman tidak ditemukan (Route 404).</p></div>';
             return;
@@ -25,11 +28,13 @@ class Router {
         $route = $this->routes[$pageSlug];
         
         // Cek Capability (Permission)
-        if (isset($route['capability']) && !current_user_can($route['capability'])) {
+        $capability = $route['capability'] ?? 'manage_options';
+        if (!current_user_can($capability)) {
             wp_die('Anda tidak memiliki izin untuk mengakses halaman ini.');
         }
 
-        $this->execute($route['controller'], $route['method']);
+        $method = $route['method'] ?? 'index';
+        $this->execute($route['controller'], $method);
     }
 
     /**

@@ -2,9 +2,9 @@
 // File: ManifestController.php
 // Location: src/Controllers/Admin/ManifestController.php
 
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Utils\View;
+use App\Utils\View;
 
 class ManifestController {
 

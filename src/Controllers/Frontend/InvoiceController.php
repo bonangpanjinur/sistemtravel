@@ -1,11 +1,11 @@
 <?php
 // src/Controllers/Frontend/InvoiceController.php
 
-namespace UmhMgmt\Controllers\Frontend;
+namespace App\Controllers\Frontend;
 
-use UmhMgmt\Core\Container;
-use UmhMgmt\Repositories\BookingRepository;
-use UmhMgmt\Utils\PdfGenerator;
+use App\Core\Container;
+use App\Repositories\BookingRepository;
+use App\Utils\PdfGenerator;
 
 class InvoiceController {
     

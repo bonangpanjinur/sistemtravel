@@ -1,12 +1,12 @@
 <?php
 // Path: src/Controllers/Admin/PackageController.php
 
-namespace UmrahManagement\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmrahManagement\Repositories\PackageRepository;
-use UmrahManagement\Repositories\MasterDataRepository; // Added for retrieving master data
-use UmrahManagement\Utils\View;
-use UmrahManagement\Utils\Validator;
+use App\Repositories\PackageRepository;
+use App\Repositories\MasterDataRepository;
+use App\Utils\View;
+use App\Utils\Validator;
 
 class PackageController {
     private $packageRepository;
@@ -19,13 +19,39 @@ class PackageController {
     }
 
     public function index() {
+        $tab = $_GET['tab'] ?? 'packages';
         $search = isset($_GET['s']) ? sanitize_text_field($_GET['s']) : '';
-        $packages = $this->packageRepository->getAll(10, 0, $search);
-        
-        echo View::render('admin/packages/list', [
-            'packages' => $packages,
-            'search' => $search
-        ]);
+
+        // Render Tabs
+        $tabs = [
+            ['id' => 'packages', 'label' => 'Paket Umrah', 'url' => admin_url('admin.php?page=travel-sys-sales&tab=packages')],
+            ['id' => 'bookings', 'label' => 'Booking', 'url' => admin_url('admin.php?page=travel-sys-sales&tab=bookings')],
+            ['id' => 'leads', 'label' => 'Leads', 'url' => admin_url('admin.php?page=travel-sys-sales&tab=leads')],
+            ['id' => 'catalog', 'label' => 'Katalog', 'url' => admin_url('admin.php?page=travel-sys-sales&tab=catalog')],
+        ];
+
+        echo '<div class="wrap">';
+        echo '<h1>Penjualan</h1>';
+        View::renderTabs($tabs, $tab);
+
+        switch ($tab) {
+            case 'bookings':
+                // Idealnya panggil BookingController atau method di sini
+                echo View::render('admin/bookings/list'); 
+                break;
+            case 'leads':
+                echo View::render('admin/leads/list');
+                break;
+            case 'packages':
+            default:
+                $packages = $this->packageRepository->getAll(10, 0, $search);
+                echo View::render('admin/packages/list', [
+                    'packages' => $packages,
+                    'search' => $search
+                ]);
+                break;
+        }
+        echo '</div>';
     }
 
     public function create() {

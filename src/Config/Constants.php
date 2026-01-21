@@ -2,7 +2,7 @@
 // Folder: src/Config/
 // File: Constants.php
 
-namespace UmhMgmt\Config;
+namespace App\Config;
 
 class Constants {
     // Status Booking

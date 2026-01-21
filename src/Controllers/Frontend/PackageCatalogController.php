@@ -2,10 +2,10 @@
 // File: PackageCatalogController.php
 // Location: src/Controllers/Frontend/PackageCatalogController.php
 
-namespace UmhMgmt\Controllers\Frontend;
+namespace App\Controllers\Frontend;
 
-use UmhMgmt\Repositories\PackageRepository;
-use UmhMgmt\Utils\View;
+use App\Repositories\PackageRepository;
+use App\Utils\View;
 
 class PackageCatalogController {
     private $repo;

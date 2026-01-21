@@ -1,10 +1,10 @@
 <?php
 // File: src/Controllers/Admin/InventoryScannerController.php
 
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Services\OperationalService;
-use UmhMgmt\Utils\View;
+use App\Services\OperationalService;
+use App\Utils\View;
 
 class InventoryScannerController {
     private $opService;

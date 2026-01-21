@@ -2,9 +2,9 @@
 // File: AgentCommissionController.php
 // Location: src/Controllers/Admin/AgentCommissionController.php
 
-namespace UmhMgmt\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmhMgmt\Utils\View;
+use App\Utils\View;
 
 class AgentCommissionController {
 

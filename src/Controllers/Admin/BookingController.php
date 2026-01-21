@@ -1,10 +1,10 @@
 <?php
 // Path: src/Controllers/Admin/BookingController.php
 
-namespace UmrahManagement\Controllers\Admin; // PENTING: Namespace harus ini
+namespace App\Controllers\Admin; // PENTING: Namespace harus ini
 
-use UmrahManagement\Repositories\BookingRepository;
-use UmrahManagement\Utils\View;
+use App\Repositories\BookingRepository;
+use App\Utils\View;
 
 class BookingController {
     private $bookingRepo;

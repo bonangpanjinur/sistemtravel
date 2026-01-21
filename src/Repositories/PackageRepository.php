@@ -1,9 +1,9 @@
 <?php
 // Path: src/Repositories/PackageRepository.php
 
-namespace UmrahManagement\Repositories;
+namespace App\Repositories;
 
-use UmrahManagement\Interfaces\DatabaseInterface;
+use App\Interfaces\DatabaseInterface;
 
 class PackageRepository {
     private $db;

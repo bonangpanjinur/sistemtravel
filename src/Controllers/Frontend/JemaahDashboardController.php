@@ -1,19 +1,19 @@
 <?php
 // src/Controllers/Frontend/JemaahDashboardController.php
 
-namespace UmhMgmt\Controllers\Frontend;
+namespace App\Controllers\Frontend;
 
-use UmhMgmt\Core\Container;
-use UmhMgmt\Repositories\BookingRepository;
-use UmhMgmt\Services\JemaahAppService;
-use UmhMgmt\Utils\View;
+use App\Core\Container;
+use App\Repositories\BookingRepository;
+use App\Services\JemaahAppService;
+use App\Utils\View;
 
 /**
  * Class JemaahDashboardController
  * Mengatur logika tampilan dashboard jemaah.
  * Refactored: Uses Container & Repositories.
  *
- * @package UmhMgmt\Controllers\Frontend
+ * @package App\Controllers\Frontend
  */
 class JemaahDashboardController {
     

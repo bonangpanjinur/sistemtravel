@@ -1,45 +1,43 @@
 <?php
 // Path: src/Config/routes.php
 
-// Format: 'page_slug' => [ControllerClass::class, 'methodName', 'capability']
-
 return [
     // --- ADMIN ROUTES ---
-    'umroh-dashboard' => [
-        'controller' => \UmrahManagement\Controllers\Admin\DashboardController::class,
+    'travel-sys-dashboard' => [
+        'controller' => \App\Controllers\Admin\DashboardController::class,
         'method'     => 'index',
         'capability' => 'read'
     ],
-    'umroh-packages' => [
-        'controller' => \UmrahManagement\Controllers\Admin\PackageController::class,
+    'travel-sys-sales' => [
+        'controller' => \App\Controllers\Admin\PackageController::class,
         'method'     => 'index',
         'capability' => 'manage_options'
     ],
-    'umroh-packages-add' => [
-        'controller' => \UmrahManagement\Controllers\Admin\PackageController::class,
-        'method'     => 'create',
+    'travel-sys-ops' => [
+        'controller' => \App\Controllers\Admin\OperationalController::class,
+        'method'     => 'index',
         'capability' => 'manage_options'
     ],
-    'umroh-bookings' => [
-        'controller' => \UmrahManagement\Controllers\Admin\BookingController::class,
+    'travel-sys-finance-group' => [
+        'controller' => \App\Controllers\Admin\FinanceController::class,
+        'method'     => 'index',
+        'capability' => 'manage_options'
+    ],
+    'travel-sys-settings-group' => [
+        'controller' => \App\Controllers\Admin\SettingsController::class,
         'method'     => 'index',
         'capability' => 'manage_options'
     ],
     
-    // --- ACTION ROUTES (POST Handling via admin-post.php) ---
-    // Key-nya adalah nama 'action' di input hidden form
+    // --- ACTION ROUTES ---
     'actions' => [
         'umh_save_package' => [
-            'controller' => \UmrahManagement\Controllers\Admin\PackageController::class,
+            'controller' => \App\Controllers\Admin\PackageController::class,
             'method'     => 'save'
         ],
         'umh_delete_package' => [
-            'controller' => \UmrahManagement\Controllers\Admin\PackageController::class,
+            'controller' => \App\Controllers\Admin\PackageController::class,
             'method'     => 'delete'
-        ],
-        'umh_print_invoice' => [ // Contoh route invoice
-            'controller' => \UmrahManagement\Controllers\Frontend\InvoiceController::class,
-            'method'     => 'print'
         ]
     ]
 ];

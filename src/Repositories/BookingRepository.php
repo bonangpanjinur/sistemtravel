@@ -1,10 +1,10 @@
 <?php
 // Path: src/Repositories/BookingRepository.php
 
-namespace UmrahManagement\Repositories;
+namespace App\Repositories;
 
-use UmrahManagement\Interfaces\DatabaseInterface;
-// use UmrahManagement\Utils\BranchScopeTrait; // Uncomment jika Trait sudah direfactor ke namespace baru
+use App\Interfaces\DatabaseInterface;
+// use App\Utils\BranchScopeTrait; // Uncomment jika Trait sudah direfactor ke namespace baru
 
 class BookingRepository {
     // use BranchScopeTrait; 

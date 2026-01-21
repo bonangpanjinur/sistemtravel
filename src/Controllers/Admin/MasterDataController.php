@@ -1,10 +1,10 @@
 <?php
 // Path: src/Controllers/Admin/MasterDataController.php
 
-namespace UmrahManagement\Controllers\Admin;
+namespace App\Controllers\Admin;
 
-use UmrahManagement\Repositories\MasterDataRepository;
-use UmrahManagement\Utils\View;
+use App\Repositories\MasterDataRepository;
+use App\Utils\View;
 
 class MasterDataController {
     private $masterRepo;

@@ -2,7 +2,7 @@
 // Folder: src/Services/
 // File: AuditLogService.php
 
-namespace UmhMgmt\Services;
+namespace App\Services;
 
 class AuditLogService {
     
