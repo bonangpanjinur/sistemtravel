@@ -1,79 +1,69 @@
 <?php
-// File: src/Controllers/Admin/SettingsController.php
 
 namespace App\Controllers\Admin;
 
+// FIX: Menambahkan Import Class View yang hilang
 use App\Utils\View;
+use App\Interfaces\DatabaseInterface;
 
-class SettingsController {
+class SettingsController
+{
+    private $db;
 
-    public function __construct() {
-        add_action('admin_post_umh_save_settings', [$this, 'handleSaveSettings']);
+    public function __construct(DatabaseInterface $db)
+    {
+        $this->db = $db;
     }
 
-    public function index() {
-        $tab = $_GET['tab'] ?? 'staff';
-
-        $tabs = [
-            ['id' => 'staff', 'label' => 'Staff', 'url' => admin_url('admin.php?page=travel-sys-settings-group&tab=staff')],
-            ['id' => 'agents', 'label' => 'Agen', 'url' => admin_url('admin.php?page=travel-sys-settings-group&tab=agents')],
-            ['id' => 'master', 'label' => 'Master Data', 'url' => admin_url('admin.php?page=travel-sys-settings-group&tab=master')],
-            ['id' => 'integrations', 'label' => 'Integrasi', 'url' => admin_url('admin.php?page=travel-sys-settings-group&tab=integrations')],
-        ];
-
-        echo '<div class="wrap">';
-        echo '<h1>Pengaturan</h1>';
-        View::renderTabs($tabs, $tab);
-
-        switch ($tab) {
-            case 'agents':
-                echo View::render('admin/agents/commissions'); // Fallback to commissions as list is missing
-                break;
-            case 'master':
-                echo View::render('admin/master-data');
-                break;
-            case 'integrations':
-                echo View::render('admin/integrations/settings');
-                break;
-            case 'staff':
-            default:
-                echo View::render('admin/settings');
-                break;
+    public function index()
+    {
+        // Handle form submission
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
+            $this->saveSettings($_POST);
         }
-        echo '</div>';
+
+        $settings = $this->getSettings();
+
+        // Error sebelumnya terjadi di sini karena class View tidak ditemukan
+        View::render('admin/settings', [
+            'title' => 'System Settings',
+            'settings' => $settings
+        ]);
     }
 
-    public function handleSaveSettings() {
-        if (!current_user_can('manage_options')) {
-            wp_die('Unauthorized');
-        }
-
-        check_admin_referer('umh_save_settings_action', 'umh_settings_nonce');
-
-        $fields = [
-            'umh_company_name', 'umh_company_address', 'umh_company_phone', 'umh_company_logo',
-            'umh_midtrans_server_key', 'umh_midtrans_client_key', 'umh_midtrans_is_production',
-            'umh_wa_api_url', 'umh_wa_api_token', 'umh_email_sender_name',
-            'umh_wa_msg_booking', 'umh_wa_msg_payment',
-            'umh_siskopatuh_api_key'
+    private function getSettings()
+    {
+        // Fetch settings from wp_options or custom table
+        $defaults = [
+            'company_name' => get_option('travel_company_name', ''),
+            'company_address' => get_option('travel_company_address', ''),
+            'company_phone' => get_option('travel_company_phone', ''),
+            'company_email' => get_option('travel_company_email', ''),
+            'currency' => get_option('travel_currency', 'IDR'),
+            'logo_url' => get_option('travel_logo_url', '')
         ];
 
+        return $defaults;
+    }
+
+    private function saveSettings($data)
+    {
+        // Verify nonce
+        if (!isset($data['travel_settings_nonce']) || !wp_verify_nonce($data['travel_settings_nonce'], 'save_travel_settings')) {
+            return;
+        }
+
+        // Save fields
+        $fields = ['company_name', 'company_address', 'company_phone', 'company_email', 'currency', 'logo_url'];
+        
         foreach ($fields as $field) {
-            if (isset($_POST[$field])) {
-                $value = ($_POST[$field]); 
-                if ($field === 'umh_midtrans_is_production') {
-                    $value = intval($value);
-                } else {
-                    $value = sanitize_text_field($value);
-                    if (strpos($field, 'msg') !== false) {
-                        $value = sanitize_textarea_field($_POST[$field]);
-                    }
-                }
-                update_option($field, $value);
+            $key = 'travel_' . $field;
+            if (isset($data[$key])) {
+                update_option($key, sanitize_text_field($data[$key]));
             }
         }
 
-        wp_redirect(admin_url('admin.php?page=travel-sys-settings-group&status=success'));
-        exit;
+        // Add success message
+        add_settings_error('travel_settings', 'settings_updated', 'Settings Saved Successfully', 'success');
     }
 }

@@ -1,34 +1,47 @@
 <?php
-// Folder: src/Controllers/Admin/
-// File: AgentsHRController.php
 
 namespace App\Controllers\Admin;
 
 use App\Utils\View;
-use App\Config\Constants;
+use App\Interfaces\DatabaseInterface;
 
-class AgentsHRController {
-    public function __construct() {
-        add_action('admin_menu', [$this, 'add_submenu_page']);
+class AgentsHRController
+{
+    private $db;
+
+    public function __construct(DatabaseInterface $db)
+    {
+        $this->db = $db;
     }
 
-    public function add_submenu_page() {
-        add_submenu_page(
-            'umh-dashboard',
-            'Agents & HR',
-            'Agents & HR',
-            Constants::CAP_MANAGE_OPTIONS, // Menggunakan Constant
-            'umh-agents-hr',
-            [$this, 'render_page']
-        );
+    /**
+     * Menampilkan halaman utama Agents & HR
+     * Memperbaiki error: Call to undefined method App\Controllers\Admin\AgentsHRController::index()
+     */
+    public function index()
+    {
+        // Ambil data agent/staff jika diperlukan
+        $agents = $this->db->fetchAll('users', ['role' => 'agent']); // Contoh query sederhana
+        $employees = $this->db->fetchAll('employees'); // Asumsi tabel employees ada
+
+        View::render('admin/agents-hr', [
+            'title' => 'Agents & HR Management',
+            'agents' => $agents,
+            'employees' => $employees
+        ]);
     }
 
-    public function render_page() {
-        // SECURITY FIX: Cek ulang permission sebelum render
-        if (!current_user_can(Constants::CAP_MANAGE_OPTIONS)) {
-            wp_die('Unauthorized access');
-        }
+    public function commissions()
+    {
+        View::render('admin/agents/commissions', [
+            'title' => 'Agent Commissions'
+        ]);
+    }
 
-        View::render('admin/agents-hr');
+    public function employees()
+    {
+        View::render('admin/hr/employee-list', [
+            'title' => 'Employee List'
+        ]);
     }
 }

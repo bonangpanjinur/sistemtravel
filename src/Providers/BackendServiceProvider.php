@@ -2,52 +2,270 @@
 
 namespace SistemTravel\UmrohManagement\Providers;
 
-use SistemTravel\UmrohManagement\Core\Container;
-use ReflectionClass;
-use ReflectionNamedType;
+// Use App namespaces for internal components
+use App\Core\WordPressDatabaseAdapter;
+use App\Interfaces\DatabaseInterface;
+use App\Controllers\Admin\DashboardController;
+use App\Controllers\Admin\BookingController;
+use App\Controllers\Admin\PackageController;
+use App\Controllers\Admin\OperationalController;
+use App\Controllers\Admin\CRMController;
+use App\Controllers\Admin\FinanceController;
+use App\Controllers\Admin\ReportController;
+use App\Controllers\Admin\SettingsController;
+use App\Controllers\Admin\AgentsHRController;
+use App\Controllers\Admin\BranchController;
+use App\Controllers\Admin\MasterDataController;
+use App\Controllers\Admin\IntegrationController;
+use App\Controllers\Admin\SpecialServicesController;
+use App\Controllers\Admin\SavingsController;
+use App\Controllers\Admin\InventoryScannerController;
+use App\Controllers\Admin\ManifestController;
+use App\Controllers\Admin\LeadController;
 
-// Kami menggunakan Fully Qualified Class Name di dalam method untuk menghindari masalah import
 class BackendServiceProvider
 {
-    protected $container;
-
-    public function __construct(Container $container)
-    {
-        $this->container = $container;
-    }
+    /**
+     * @var mixed The dependency injection container
+     */
+    private $container;
 
     /**
-     * Register services and hooks.
+     * Constructor receives the container from the main plugin class.
+     * * @param mixed $container The DI container instance
      */
+    public function __construct($container = null)
+    {
+        // FIX: Accept existing container instead of creating new one
+        // Fallback to new App\Core\Container only if null passed
+        if ($container) {
+            $this->container = $container;
+        } else {
+            // Only strictly require App\Core\Container if we have to create it ourselves
+            // This avoids "Class not found" if the caller passed a compatible container from a different namespace
+            if (class_exists('App\Core\Container')) {
+                $this->container = new \App\Core\Container();
+            } else {
+                // Last resort fallback
+                $this->container = new \stdClass();
+            }
+        }
+    }
+
     public function register()
     {
-        add_action('admin_menu', [$this, 'registerAdminMenus']);
-        add_action('admin_enqueue_scripts', [$this, 'enqueueAdminAssets']);
+        // 1. FIX: Bind DatabaseInterface Explicitly FIRST
+        // Ensure the container has the bind/singleton method before calling
+        if (method_exists($this->container, 'singleton')) {
+            $this->container->singleton(DatabaseInterface::class, function () {
+                return new WordPressDatabaseAdapter();
+            });
+        } elseif (method_exists($this->container, 'bind')) {
+             // Fallback for simple containers
+             $this->container->bind(DatabaseInterface::class, function () {
+                return new WordPressDatabaseAdapter();
+            });
+        }
+
+        // 2. Bind Repositories
+        $this->registerRepositories();
+
+        // 3. Bind Services
+        $this->registerServices();
+
+        // 4. Bind Controllers
+        $this->registerControllers();
+
+        // 5. Setup Admin Hooks
+        add_action('admin_menu', [$this, 'registerAdminMenu']);
+        add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
+    }
+
+    private function registerRepositories()
+    {
+        if (!method_exists($this->container, 'bind')) {
+            return;
+        }
+
+        // Repositories automatically resolved if DatabaseInterface is present
+        $repositories = [
+            \App\Repositories\DashboardRepository::class,
+            \App\Repositories\BookingRepository::class,
+            \App\Repositories\PackageRepository::class,
+            \App\Repositories\OperationalRepository::class,
+            \App\Repositories\CRMRepository::class,
+            \App\Repositories\FinanceRepository::class,
+            \App\Repositories\MasterDataRepository::class,
+            \App\Repositories\LeadRepository::class,
+        ];
+
+        foreach ($repositories as $repo) {
+            $this->container->bind($repo, function ($c) use ($repo) {
+                // Handle different container implementations if necessary
+                $db = $c->get(DatabaseInterface::class);
+                return new $repo($db);
+            });
+        }
+    }
+
+    private function registerServices()
+    {
+        // Register services here if needed explicitly
+    }
+
+    private function registerControllers()
+    {
+        // Controllers resolve dependencies automatically via reflection in resolve()
+    }
+
+    public function registerAdminMenu()
+    {
+        add_menu_page(
+            'Sistem Travel',
+            'Sistem Travel',
+            'manage_options',
+            'travel-umroh',
+            [$this, 'renderDashboard'],
+            'dashicons-airplane',
+            2
+        );
+
+        add_submenu_page('travel-umroh', 'Dashboard', 'Dashboard', 'manage_options', 'travel-umroh', [$this, 'renderDashboard']);
+        add_submenu_page('travel-umroh', 'Bookings', 'Bookings', 'manage_options', 'travel-umroh-bookings', [$this, 'renderBookings']);
+        add_submenu_page('travel-umroh', 'Packages', 'Packages', 'manage_options', 'travel-umroh-packages', [$this, 'renderPackages']);
+        add_submenu_page('travel-umroh', 'Operational', 'Operational', 'manage_options', 'travel-umroh-operational', [$this, 'renderOperational']);
+        add_submenu_page('travel-umroh', 'CRM & Leads', 'CRM & Leads', 'manage_options', 'travel-umroh-crm', [$this, 'renderCRM']);
+        add_submenu_page('travel-umroh', 'Finance', 'Finance', 'manage_options', 'travel-umroh-finance', [$this, 'renderFinance']);
+        add_submenu_page('travel-umroh', 'Agents & HR', 'Agents & HR', 'manage_options', 'travel-umroh-agents', [$this, 'renderAgents']);
+        add_submenu_page('travel-umroh', 'Reports', 'Reports', 'manage_options', 'travel-umroh-reports', [$this, 'renderReports']);
+        add_submenu_page('travel-umroh', 'Settings', 'Settings', 'manage_options', 'travel-umroh-settings', [$this, 'renderSettings']);
+        
+        // Hidden pages or sub-features
+        add_submenu_page(null, 'Branches', 'Branches', 'manage_options', 'travel-umroh-branches', [$this, 'renderBranches']);
+        add_submenu_page(null, 'Master Data', 'Master Data', 'manage_options', 'travel-umroh-master-data', [$this, 'renderMasterData']);
+        add_submenu_page(null, 'Integrations', 'Integrations', 'manage_options', 'travel-umroh-integrations', [$this, 'renderIntegrations']);
+        add_submenu_page(null, 'Special Services', 'Special Services', 'manage_options', 'travel-umroh-special-services', [$this, 'renderSpecialServices']);
+        add_submenu_page(null, 'Savings', 'Savings', 'manage_options', 'travel-umroh-savings', [$this, 'renderSavings']);
+    }
+
+    public function enqueueAssets($hook)
+    {
+        if (strpos($hook, 'travel-umroh') === false) {
+            return;
+        }
+
+        wp_enqueue_style('travel-umroh-admin', plugins_url('../../assets/css/admin.css', __FILE__), [], '1.0.0');
+    }
+
+    // --- Render Methods ---
+
+    public function renderDashboard()
+    {
+        $controller = $this->resolve(DashboardController::class);
+        if ($controller) $controller->index();
+    }
+
+    public function renderBookings()
+    {
+        $controller = $this->resolve(BookingController::class);
+        if ($controller) $controller->index();
+    }
+
+    public function renderPackages()
+    {
+        $controller = $this->resolve(PackageController::class);
+        if ($controller) {
+            if (isset($_GET['action']) && $_GET['action'] === 'create') {
+                $controller->create();
+            } elseif (isset($_GET['action']) && $_GET['action'] === 'edit' && isset($_GET['id'])) {
+                $controller->edit($_GET['id']);
+            } else {
+                $controller->index();
+            }
+        }
+    }
+
+    public function renderOperational()
+    {
+        $controller = $this->resolve(OperationalController::class);
+        if ($controller) $controller->index();
+    }
+
+    public function renderCRM()
+    {
+        $controller = $this->resolve(CRMController::class);
+        if ($controller) $controller->index();
+    }
+
+    public function renderFinance()
+    {
+        $controller = $this->resolve(FinanceController::class);
+        if ($controller) $controller->index();
+    }
+
+    public function renderAgents()
+    {
+        $controller = $this->resolve(AgentsHRController::class);
+        if ($controller) $controller->index(); 
+    }
+
+    public function renderReports()
+    {
+        $controller = $this->resolve(ReportController::class);
+        if ($controller) $controller->index();
+    }
+
+    public function renderSettings()
+    {
+        $controller = $this->resolve(SettingsController::class);
+        if ($controller) $controller->index();
+    }
+    
+    public function renderBranches() {
+        $controller = $this->resolve(BranchController::class);
+        if ($controller) $controller->index();
+    }
+
+    public function renderMasterData() {
+        $controller = $this->resolve(MasterDataController::class);
+        if ($controller) $controller->index();
+    }
+    
+    public function renderIntegrations() {
+        $controller = $this->resolve(IntegrationController::class);
+        if ($controller) $controller->index();
+    }
+    
+    public function renderSpecialServices() {
+        $controller = $this->resolve(SpecialServicesController::class);
+        if ($controller) $controller->index();
+    }
+
+    public function renderSavings() {
+        $controller = $this->resolve(SavingsController::class);
+        if ($controller) $controller->index();
     }
 
     /**
-     * Helper: Resolusi Dependensi Otomatis (Auto-Wiring).
-     * Menggantikan "new Class($container)" dengan injeksi cerdas.
+     * Simple dependency resolver
      */
-    private function resolve($className)
+    private function resolve($class)
     {
-        // 1. Pastikan class target ada
-        if (!class_exists($className)) {
+        // Try container first
+        if (method_exists($this->container, 'has') && $this->container->has($class)) {
+            return $this->container->get($class);
+        }
+
+        if (!class_exists($class)) {
+            echo "<div class='error'><p>Class $class not found. Please check namespaces.</p></div>";
             return null;
         }
 
-        $reflector = new ReflectionClass($className);
-
-        // Jika tidak bisa diinstansiasi (abstract/interface)
-        if (!$reflector->isInstantiable()) {
-            return null;
-        }
-
+        $reflector = new \ReflectionClass($class);
         $constructor = $reflector->getConstructor();
 
-        // Jika tidak ada constructor, langsung buat instance baru
         if (is_null($constructor)) {
-            return new $className;
+            return new $class;
         }
 
         $parameters = $constructor->getParameters();
@@ -55,31 +273,33 @@ class BackendServiceProvider
 
         foreach ($parameters as $parameter) {
             $type = $parameter->getType();
-            
-            // Jika parameter memiliki tipe class (Dependency Injection)
-            if ($type instanceof ReflectionNamedType && !$type->isBuiltin()) {
-                $dependencyName = $type->getName();
+            if ($type && !$type->isBuiltin()) {
+                $dependencyClass = $type->getName();
                 
-                // A. Jika meminta Container, berikan container utama
-                if (strpos($dependencyName, 'Container') !== false) {
-                    $dependencies[] = $this->container;
-                    continue;
-                }
-
-                // B. Jika dependensi belum dimuat, coba cari filenya
-                if (!class_exists($dependencyName)) {
-                    $this->autoloadDependency($dependencyName);
-                }
-
-                // C. Resolusi rekursif untuk dependensi tersebut
-                if (class_exists($dependencyName)) {
-                    $dependencies[] = $this->resolve($dependencyName);
+                // Check container
+                if (method_exists($this->container, 'has') && $this->container->has($dependencyClass)) {
+                    $dependencies[] = $this->container->get($dependencyClass);
                 } else {
-                    // Fallback: Jika gagal resolve, berikan null (atau Container jika putus asa)
-                    $dependencies[] = null;
+                    // Specific fix for DatabaseInterface
+                    if ($dependencyClass === DatabaseInterface::class) {
+                        if (method_exists($this->container, 'has') && !$this->container->has(DatabaseInterface::class)) {
+                            // Late binding if missed
+                             if (method_exists($this->container, 'singleton')) {
+                                $this->container->singleton(DatabaseInterface::class, function () {
+                                    return new WordPressDatabaseAdapter();
+                                });
+                             }
+                        }
+                        if (method_exists($this->container, 'get')) {
+                            $dependencies[] = $this->container->get(DatabaseInterface::class);
+                        } else {
+                            $dependencies[] = new WordPressDatabaseAdapter();
+                        }
+                    } else {
+                        $dependencies[] = $this->resolve($dependencyClass);
+                    }
                 }
             } else {
-                // Jika parameter primitif (string/int), gunakan nilai default jika ada
                 if ($parameter->isDefaultValueAvailable()) {
                     $dependencies[] = $parameter->getDefaultValue();
                 } else {
@@ -89,185 +309,5 @@ class BackendServiceProvider
         }
 
         return $reflector->newInstanceArgs($dependencies);
-    }
-
-    /**
-     * Helper: Mencari file Repositories/Services jika Autoloader gagal.
-     */
-    private function autoloadDependency($className)
-    {
-        // Daftar folder umum di src/
-        $folders = ['Repositories', 'Services', 'Utils', 'Core', 'Models', 'Interfaces'];
-        $baseDir = dirname(__DIR__) . '/'; // Path ke folder src/
-
-        // Ambil nama file dari class (misal: App\Repositories\BookingRepository -> BookingRepository)
-        $parts = explode('\\', $className);
-        $shortName = end($parts);
-
-        foreach ($folders as $folder) {
-            // Cek apakah nama class mengandung nama folder (misal "Repository" biasanya ada di folder Repositories)
-            // Atau cukup cari file dengan nama tersebut di setiap folder
-            $file = $baseDir . $folder . '/' . $shortName . '.php';
-            
-            if (file_exists($file)) {
-                require_once $file;
-                
-                // Cek namespace mismatch (App vs SistemTravel) dan buat alias jika perlu
-                if (!class_exists($className)) {
-                    // Cari class apa yang sebenarnya didefinisikan di file itu
-                    $content = file_get_contents($file);
-                    if (preg_match('/namespace\s+(.+?);/', $content, $matches)) {
-                        $realClass = trim($matches[1]) . '\\' . $shortName;
-                        if (class_exists($realClass)) {
-                            class_alias($realClass, $className);
-                        }
-                    }
-                }
-                return;
-            }
-        }
-    }
-
-    /**
-     * Helper: Paksa load file controller dan mencoba memperbaiki namespace.
-     */
-    private function requireController($expectedClassName, $relativePath)
-    {
-        if (class_exists($expectedClassName)) {
-            return true;
-        }
-
-        $file = dirname(__DIR__) . '/' . $relativePath;
-        
-        if (!file_exists($file)) {
-            $this->showError($expectedClassName, $file, "File tidak ditemukan.");
-            return false;
-        }
-
-        require_once $file;
-
-        if (class_exists($expectedClassName)) {
-            return true;
-        }
-
-        // Auto-fix Namespace
-        $content = file_get_contents($file);
-        $fileNamespace = '';
-        if (preg_match('/namespace\s+(.+?);/', $content, $matches)) {
-            $fileNamespace = trim($matches[1]);
-        }
-        $fileClass = pathinfo($file, PATHINFO_FILENAME);
-        $realClassName = $fileNamespace . '\\' . $fileClass;
-
-        if (class_exists($realClassName)) {
-            class_alias($realClassName, $expectedClassName);
-            return true;
-        }
-
-        $this->showError($expectedClassName, $file, "Namespace mismatch: '$fileNamespace'");
-        return false;
-    }
-
-    private function showError($className, $file, $analisis)
-    {
-        echo "<div class='notice notice-error' style='padding:15px; border-left: 4px solid #d63638; margin: 20px 0; background:#fff;'>";
-        echo "<h3 style='margin:0 0 5px; color:#d63638;'>Sistem Travel Error</h3>";
-        echo "<p>Gagal memuat Controller.</p><ul><li>Target: <code>{$className}</code></li><li>File: <code>{$file}</code></li><li>Analisis: {$analisis}</li></ul>";
-        echo "</div>";
-    }
-
-    public function registerAdminMenus()
-    {
-        $capability = 'manage_options';
-        $main_slug  = 'sistem-travel';
-
-        add_menu_page('Sistem Travel', 'Travel Umroh', $capability, $main_slug, [$this, 'renderDashboard'], 'dashicons-airplane', 2);
-        add_submenu_page($main_slug, 'Dashboard', 'Dashboard', $capability, $main_slug, [$this, 'renderDashboard']);
-        add_submenu_page($main_slug, 'Data Pendaftaran', 'Booking & Jamaah', $capability, 'st-booking', [$this, 'renderBooking']);
-        add_submenu_page($main_slug, 'Kelola Paket', 'Paket Umroh', $capability, 'st-packages', [$this, 'renderPackages']);
-        add_submenu_page($main_slug, 'Operasional & Manifest', 'Operasional', $capability, 'st-operational', [$this, 'renderOperational']);
-        add_submenu_page($main_slug, 'CRM & Leads', 'CRM / Leads', $capability, 'st-crm', [$this, 'renderCRM']);
-        add_submenu_page($main_slug, 'Laporan Keuangan', 'Keuangan', $capability, 'st-finance', [$this, 'renderFinance']);
-        add_submenu_page($main_slug, 'Agen & Pegawai', 'Agen & HR', $capability, 'st-agents', [$this, 'renderAgents']);
-        add_submenu_page($main_slug, 'Pengaturan Sistem', 'Pengaturan', $capability, 'st-settings', [$this, 'renderSettings']);
-    }
-
-    public function enqueueAdminAssets()
-    {
-        wp_enqueue_style('st-admin-css', plugin_dir_url(dirname(__DIR__, 2)) . 'assets/css/admin.css', [], '1.0.1');
-    }
-
-    // --- Callback Functions (Updated to use resolve() instead of new) ---
-
-    public function renderDashboard()
-    {
-        $class = 'SistemTravel\UmrohManagement\Controllers\Admin\DashboardController';
-        if ($this->requireController($class, 'Controllers/Admin/DashboardController.php')) {
-            $instance = $this->resolve($class);
-            if ($instance) $instance->index();
-        }
-    }
-
-    public function renderBooking()
-    {
-        $class = 'SistemTravel\UmrohManagement\Controllers\Admin\BookingController';
-        if ($this->requireController($class, 'Controllers/Admin/BookingController.php')) {
-            $instance = $this->resolve($class); // Auto-wires BookingRepository
-            if ($instance) $instance->index();
-        }
-    }
-
-    public function renderPackages()
-    {
-        $class = 'SistemTravel\UmrohManagement\Controllers\Admin\PackageController';
-        if ($this->requireController($class, 'Controllers/Admin/PackageController.php')) {
-            $instance = $this->resolve($class);
-            if ($instance) $instance->index();
-        }
-    }
-
-    public function renderOperational()
-    {
-        $class = 'SistemTravel\UmrohManagement\Controllers\Admin\OperationalController';
-        if ($this->requireController($class, 'Controllers/Admin/OperationalController.php')) {
-            $instance = $this->resolve($class);
-            if ($instance) $instance->index();
-        }
-    }
-
-    public function renderCRM()
-    {
-        $class = 'SistemTravel\UmrohManagement\Controllers\Admin\CRMController';
-        if ($this->requireController($class, 'Controllers/Admin/CRMController.php')) {
-            $instance = $this->resolve($class);
-            if ($instance) $instance->index();
-        }
-    }
-
-    public function renderFinance()
-    {
-        $class = 'SistemTravel\UmrohManagement\Controllers\Admin\FinanceController';
-        if ($this->requireController($class, 'Controllers/Admin/FinanceController.php')) {
-            $instance = $this->resolve($class);
-            if ($instance) $instance->index();
-        }
-    }
-
-    public function renderAgents()
-    {
-        $class = 'SistemTravel\UmrohManagement\Controllers\Admin\AgentsHRController';
-        if ($this->requireController($class, 'Controllers/Admin/AgentsHRController.php')) {
-            $instance = $this->resolve($class);
-            if ($instance) $instance->index();
-        }
-    }
-
-    public function renderSettings()
-    {
-        $class = 'SistemTravel\UmrohManagement\Controllers\Admin\SettingsController';
-        if ($this->requireController($class, 'Controllers/Admin/SettingsController.php')) {
-            $instance = $this->resolve($class);
-            if ($instance) $instance->index();
-        }
     }
 }
